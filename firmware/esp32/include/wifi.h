@@ -3,8 +3,17 @@
 #include <cstdint>
 #include <cstddef>
 
+/**
+ * @file wifi.h
+ * @brief Module de gestion du WiFi en mode Access Point
+ * 
+ * Ce module gère la création et le contrôle d'un point d'accès WiFi,
+ * permettant aux clients de se connecter directement au robot Bittle.
+ * Inclut le monitoring des clients connectés et la gestion des événements réseau.
+ */
+
 namespace wifi {
-//ZIZIs
+
 /**
  * @brief Configuration WiFi Access Point
  */

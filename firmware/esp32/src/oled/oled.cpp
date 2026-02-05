@@ -2,7 +2,7 @@
 #include "esp_log.h"
 #include "driver/i2c.h"
 #include <cstring>
-//ZIZI
+
 namespace oled {
 
 static const char* TAG = "OLED";
@@ -18,7 +18,10 @@ static uint8_t s_buffer[WIDTH * PAGES] = {0};
 static i2c_port_t s_i2c_port = I2C_NUM_0;
 static bool s_initialized = false;
 
-// Police 5x7 simple (ASCII 32-127)
+/**
+ * @brief Police 5x7 pixels pour affichage texte (ASCII 32-127)
+ * Chaque caractère est représenté par 5 colonnes de 7 pixels.
+ */
 static const uint8_t FONT_5X7[][5] = {
     {0x00, 0x00, 0x00, 0x00, 0x00}, // ' '
     {0x00, 0x00, 0x5F, 0x00, 0x00}, // '!'
@@ -117,7 +120,10 @@ static const uint8_t FONT_5X7[][5] = {
     {0x02, 0x01, 0x02, 0x04, 0x02}, // '~'
 };
 
-// Commandes SSD1306
+/**
+ * @brief Énumération des commandes SSD1306
+ * Commandes pour contrôler l'écran OLED via I2C.
+ */
 enum Cmd {
     SET_CONTRAST = 0x81,
     DISPLAY_ALL_ON_RESUME = 0xA4,
@@ -146,13 +152,22 @@ enum Cmd {
     SWITCH_CAP_VCC = 0x02,
 };
 
-// Envoie une commande
+/**
+ * @brief Envoie une commande unique au SSD1306
+ * @param cmd Commande à envoyer
+ * @return ESP_OK si succès, erreur sinon
+ */
 static esp_err_t send_command(uint8_t cmd) {
     uint8_t data[2] = {0x00, cmd};  // 0x00 = Co=0, D/C=0 (command)
     return i2c_master_write_to_device(s_i2c_port, SSD1306_ADDR, data, 2, pdMS_TO_TICKS(100));
 }
 
-// Envoie des données
+/**
+ * @brief Envoie des données (pixels) au SSD1306
+ * @param data Buffer de données à envoyer
+ * @param len Taille du buffer
+ * @return ESP_OK si succès, erreur sinon
+ */
 static esp_err_t send_data(const uint8_t* data, size_t len) {
     uint8_t* buffer = new uint8_t[len + 1];
     buffer[0] = 0x40;  // 0x40 = Co=0, D/C=1 (data)
@@ -168,7 +183,7 @@ bool init(int scl_gpio, int sda_gpio, uint32_t i2c_freq) {
     ESP_LOGI(TAG, "  SDA: GPIO%d", sda_gpio);
     ESP_LOGI(TAG, "  Freq: %lu Hz", i2c_freq);
 
-    // Configuration I2C
+    // Configuration I2C en mode master
     i2c_config_t conf = {};
     conf.mode = I2C_MODE_MASTER;
     conf.sda_io_num = sda_gpio;
@@ -189,7 +204,7 @@ bool init(int scl_gpio, int sda_gpio, uint32_t i2c_freq) {
         return false;
     }
 
-    // Séquence d'initialisation SSD1306
+    // Séquence d'initialisation standard du SSD1306
     vTaskDelay(pdMS_TO_TICKS(100));  // Attente stabilisation
 
     send_command(DISPLAY_OFF);

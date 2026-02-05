@@ -2,6 +2,21 @@
 
 #include <cstdint>
 
+/**
+ * @file mpu9250.h
+ * @brief Module de contrôle du capteur IMU MPU-9250
+ * 
+ * Driver I2C pour capteur 9 axes (accéléromètre + gyroscope + magnétomètre).
+ * Le module fournit:
+ * - Lecture accélération 3 axes (±16g)
+ * - Lecture gyroscope 3 axes (±2000°/s)
+ * - Calcul des angles Euler (pitch, roll, yaw)
+ * - Lecture magnétomètre (TODO)
+ * 
+ * @note Adresse I2C: 0x68 (par défaut) ou 0x69 avec AD0=HIGH
+ * @note WHOAMI ID: 0x71
+ */
+
 namespace mpu9250 {
 
 /**

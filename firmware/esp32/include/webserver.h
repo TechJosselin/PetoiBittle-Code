@@ -1,7 +1,18 @@
 #pragma once
 
+/**
+ * @file webserver.h
+ * @brief Module serveur web HTTP pour le contrôle du robot
+ * 
+ * Ce module fournit une interface web complète avec:
+ * - Contrôle LED et servos
+ * - Lecture des données IMU en temps réel
+ * - Interface de cinématique inverse (IK) interactive
+ * - API REST JSON pour le contrôle batch des servos
+ */
+
 namespace webserver {
-//ZIZI
+
 /**
  * @brief Démarre le serveur web HTTP
  * @param port Port d'écoute (par défaut 80)

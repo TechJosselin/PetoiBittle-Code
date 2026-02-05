@@ -2,7 +2,18 @@
 
 #include <cstdint>
 #include <cstddef>
-//ZIZI
+
+/**
+ * @file oled.h
+ * @brief Module de contrôle de l'écran OLED SSD1306
+ * 
+ * Driver pour écran OLED 128x64 pixels communiquant via I2C.
+ * Supporte l'affichage de texte avec une police 5x7 intégrée,
+ * contrôle du contraste et de l'alimentation.
+ * 
+ * @note L'écran utilise l'adresse I2C standard 0x3C
+ */
+
 namespace oled {
 
 /**

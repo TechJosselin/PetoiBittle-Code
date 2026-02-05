@@ -3,7 +3,7 @@
 #include "driver/i2c.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-//ZIZI
+
 namespace pca9685 {
 
 static const char* TAG = "PCA9685";
@@ -39,13 +39,23 @@ static i2c_port_t s_i2c_port = I2C_NUM_0;
 static uint16_t s_pwm_freq = 50;
 static bool s_initialized = false;
 
-// Écriture d'un registre
+/**
+ * @brief Écrit une valeur dans un registre du PCA9685
+ * @param reg Adresse du registre
+ * @param value Valeur à écrire
+ * @return ESP_OK si succès, erreur sinon
+ */
 static esp_err_t write_register(uint8_t reg, uint8_t value) {
     uint8_t data[2] = {reg, value};
     return i2c_master_write_to_device(s_i2c_port, s_address, data, 2, pdMS_TO_TICKS(100));
 }
 
-// Lecture d'un registre
+/**
+ * @brief Lit une valeur depuis un registre du PCA9685
+ * @param reg Adresse du registre
+ * @param value Pointeur pour stocker la valeur lue
+ * @return ESP_OK si succès, erreur sinon
+ */
 static esp_err_t read_register(uint8_t reg, uint8_t* value) {
     return i2c_master_write_read_device(s_i2c_port, s_address, &reg, 1, value, 1, pdMS_TO_TICKS(100));
 }

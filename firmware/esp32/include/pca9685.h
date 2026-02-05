@@ -1,7 +1,22 @@
 #pragma once
 
 #include <cstdint>
-//ZIZI
+
+/**
+ * @file pca9685.h
+ * @brief Module de contrôle du PCA9685 (16 canaux PWM pour servomoteurs)
+ * 
+ * Driver I2C pour contrôleur PWM PCA9685, permettant de piloter jusqu'à 16 servos.
+ * Le module supporte:
+ * - Contrôle par angle (0-180°)
+ * - Contrôle par largeur d'impulsion (µs)
+ * - Configuration de la fréquence PWM (50Hz standard pour servos)
+ * - Contrôle PWM brut (valeurs 0-4095)
+ * 
+ * @note Configuration par défaut: adresse I2C 0x40, fréquence 50Hz
+ * @note Pour Bittle: adresse personnalisée 0x72 (A5+A4+A1)
+ */
+
 namespace pca9685 {
 
 /**

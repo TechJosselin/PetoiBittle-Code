@@ -1,7 +1,15 @@
 #pragma once
 
 #include "driver/gpio.h"
-//ZIZI
+
+/**
+ * @file led.h
+ * @brief Module de contrôle de la LED intégrée du ESP32-C6
+ * 
+ * Ce module permet de contrôler la LED intégrée en mode Active LOW.
+ * La LED est connectée au GPIO15 sur le Seeed Xiao ESP32-C6.
+ */
+
 namespace led {
 
 /**

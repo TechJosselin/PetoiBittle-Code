@@ -40,17 +40,15 @@ static const char* TAG = "MPU9250";
 
 // Variables globales
 static bool s_initialized = false;
-static float accel_scale = 1.0f / 2048.0f;  // ±16g
-static float gyro_scale = 1.0f / 16.4f;    // ±2000°/s
+static float accel_scale = 1.0f / 2048.0f;  // +-16g
+static float gyro_scale = 1.0f / 16.4f;     // +-2000deg/s
 
-// Données globales pour le calcul d'angles
+// Donnees globales pour le calcul d'angles
 static AccelData last_accel = {0, 0, 0};
 static GyroData last_gyro = {0, 0, 0};
 static EulerAngles euler_angles = {0, 0, 0};
 
-/**
- * @brief Écrit un byte dans un registre
- */
+// Ecrit un byte dans un registre
 static bool write_reg(uint8_t reg, uint8_t value)
 {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -64,9 +62,7 @@ static bool write_reg(uint8_t reg, uint8_t value)
     return ret == ESP_OK;
 }
 
-/**
- * @brief Lit un byte depuis un registre
- */
+// Lit un byte depuis un registre
 static bool read_reg(uint8_t reg, uint8_t* out_value)
 {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -82,9 +78,7 @@ static bool read_reg(uint8_t reg, uint8_t* out_value)
     return ret == ESP_OK;
 }
 
-/**
- * @brief Lit N bytes en continu à partir d'un registre
- */
+// Lit N bytes en continu a partir d'un registre
 static bool read_regs(uint8_t reg, uint8_t* buffer, uint8_t len)
 {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -105,11 +99,11 @@ static bool read_regs(uint8_t reg, uint8_t* buffer, uint8_t len)
 
 bool init(int sda_gpio, int scl_gpio, uint8_t addr)
 {
-    ESP_LOGI(TAG, "Initialisation MPU-9250 (ancien driver I2C)...");
+    ESP_LOGI(TAG, "Initialisation MPU-9250...");
 
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    // Vérification du capteur (WHOAMI)
+    // Verification du capteur (WHOAMI)
     uint8_t whoami = 0;
     if (!read_reg(REG_WHOAMI, &whoami)) {
         ESP_LOGE(TAG, "Impossible de lire WHOAMI");
@@ -121,7 +115,7 @@ bool init(int sda_gpio, int scl_gpio, uint8_t addr)
         return false;
     }
 
-    ESP_LOGI(TAG, "✓ MPU-9250 détecté (WHOAMI=0x%02X)", whoami);
+    ESP_LOGI(TAG, "MPU-9250 detecte (WHOAMI=0x%02X)", whoami);
 
     // Reset du capteur
     write_reg(REG_PWR_MGMT_1, 0x80);
@@ -133,18 +127,18 @@ bool init(int sda_gpio, int scl_gpio, uint8_t addr)
     // Configuration CONFIG (filtre passe-bas DLPF)
     write_reg(REG_CONFIG, 0x04);  // DLPF = 20Hz
 
-    // Configuration GYRO_CONFIG (pleine échelle ±2000°/s)
+    // Configuration GYRO_CONFIG (pleine echelle +-2000deg/s)
     write_reg(REG_GYRO_CONFIG, 0x00);
 
-    // Configuration ACCEL_CONFIG (pleine échelle ±16g)
+    // Configuration ACCEL_CONFIG (pleine echelle +-16g)
     write_reg(REG_ACCEL_CONFIG, 0x03);
 
     vTaskDelay(pdMS_TO_TICKS(50));
 
     s_initialized = true;
-    ESP_LOGI(TAG, "✓ MPU-9250 initialisé avec succès");
-    ESP_LOGI(TAG, "  Accel: ±16g (scale: %f)", accel_scale);
-    ESP_LOGI(TAG, "  Gyro: ±2000°/s (scale: %f)", gyro_scale);
+    ESP_LOGI(TAG, "MPU-9250 initialise avec succes");
+    ESP_LOGI(TAG, "  Accel: +-16g (scale: %f)", accel_scale);
+    ESP_LOGI(TAG, "  Gyro: +-2000deg/s (scale: %f)", gyro_scale);
 
     return true;
 }
@@ -194,7 +188,7 @@ GyroData read_gyro()
 MagnetoData read_magneto()
 {
     MagnetoData data = {0, 0, 0};
-    // TODO: Intégration magnétomètre AK8963 (I2C secondaire)
+    // TODO: Integration magnetometre AK8963 (I2C secondaire)
     return data;
 }
 
@@ -204,11 +198,11 @@ EulerAngles calculate_angles()
     AccelData accel = read_accel();
     GyroData gyro = read_gyro();
 
-    // Calcul des angles à partir de l'accéléromètre (IMU simple)
+    // Calcul des angles a partir de l'accelerometre (IMU simple)
     float pitch = atan2f(accel.y, sqrtf(accel.x * accel.x + accel.z * accel.z)) * 180.0f / M_PI;
     float roll = atan2f(-accel.x, accel.z) * 180.0f / M_PI;
 
-    // Yaw à partir du gyroscope (intégration)
+    // Yaw a partir du gyroscope (integration)
     static unsigned long last_time = 0;
     unsigned long current_time = xTaskGetTickCount() / portTICK_PERIOD_MS;
     float dt = (current_time - last_time) / 1000.0f;

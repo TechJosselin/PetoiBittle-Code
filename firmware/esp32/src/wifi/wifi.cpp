@@ -11,9 +11,9 @@
 #include "nvs_flash.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
-//ZIZI
+
 namespace wifi {
-//ZIZI
+
 static const char* TAG = "WiFi-AP";
 
 // Variables globales du module
