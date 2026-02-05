@@ -3,7 +3,7 @@
  * Canvas 2D avec patte, cible, grille, et affichage d'angles
  */
 
-import { calculateIK, applyServoConfig, clampTarget, isReachable } from "./ik.js";
+import { calculateIK, applyServoConfig, clampTarget, isReachable, forwardKinematics } from "./ik.js";
 import { ROBOT_CONFIG, SERVO_CONFIG, getServoConfig } from "./config.js";
 
 const { L1_FEMUR, L2_TIBIA } = ROBOT_CONFIG;
@@ -126,7 +126,7 @@ function drawAxes() {
   const scale = getCanvasScale();
   const maxDist = 100; // mm
 
-  // Axe X (rouge)
+  // Axe X (rouge) - horizontal
   ctx.strokeStyle = "#ff4444";
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -134,13 +134,31 @@ function drawAxes() {
   ctx.lineTo(origin.x + maxDist * scale, origin.y);
   ctx.stroke();
 
-  // Axe Y (bleu)
+  // Axe Y (bleu) - vertical (Y inversé dans canvas)
   ctx.strokeStyle = "#4444ff";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(origin.x, origin.y - maxDist * scale);
-  ctx.lineTo(origin.x, origin.y + maxDist * scale);
+  ctx.moveTo(origin.x, origin.y + maxDist * scale); // Départ depuis bas (Y positif canvas)
+  ctx.lineTo(origin.x, origin.y - maxDist * scale); // Fin vers haut (Y négatif canvas)
   ctx.stroke();
+
+  // Flèche Y vers le haut
+  ctx.fillStyle = "#4444ff";
+  ctx.beginPath();
+  ctx.moveTo(origin.x, origin.y - maxDist * scale);
+  ctx.lineTo(origin.x - 5, origin.y - maxDist * scale + 10);
+  ctx.lineTo(origin.x + 5, origin.y - maxDist * scale + 10);
+  ctx.closePath();
+  ctx.fill();
+
+  // Flèche X vers la droite
+  ctx.fillStyle = "#ff4444";
+  ctx.beginPath();
+  ctx.moveTo(origin.x + maxDist * scale, origin.y);
+  ctx.lineTo(origin.x + maxDist * scale - 10, origin.y - 5);
+  ctx.lineTo(origin.x + maxDist * scale - 10, origin.y + 5);
+  ctx.closePath();
+  ctx.fill();
 
   // Origine (0,0)
   ctx.fillStyle = "#000";
@@ -151,8 +169,8 @@ function drawAxes() {
   // Labels
   ctx.fillStyle = "#666";
   ctx.font = "12px Arial";
-  ctx.fillText("X", origin.x + 60 * scale + 5, origin.y - 5);
-  ctx.fillText("Y", origin.x - 10, origin.y - 60 * scale - 5);
+  ctx.fillText("+X", origin.x + 60 * scale + 5, origin.y - 5);
+  ctx.fillText("+Y", origin.x + 10, origin.y - 60 * scale - 5);
 }
 
 /**
@@ -170,15 +188,16 @@ function drawLeg(ikResult) {
   const hipRad = (hipDeg * Math.PI) / 180;
 
   // Position genou (fin du segment L1)
+  // Note: Y inversé car canvas HTML a Y qui augmente vers le bas
   const kneeX = origin.x + L1_FEMUR * Math.cos(hipRad) * scale;
-  const kneeY = origin.y + L1_FEMUR * Math.sin(hipRad) * scale;
+  const kneeY = origin.y - L1_FEMUR * Math.sin(hipRad) * scale;
 
   // Angle pied (hanche + genou, en radians)
   const kneeRad = (kneeDeg * Math.PI) / 180;
   const footAngle = hipRad + kneeRad;
 
   const footX = kneeX + L2_TIBIA * Math.cos(footAngle) * scale;
-  const footY = kneeY + L2_TIBIA * Math.sin(footAngle) * scale;
+  const footY = kneeY - L2_TIBIA * Math.sin(footAngle) * scale;
 
   // Segment L1 (fémur) - bleu
   ctx.strokeStyle = "#0066ff";
@@ -220,8 +239,9 @@ function drawTarget() {
   const origin = getCanvasOrigin();
   const scale = getCanvasScale();
 
+  // Y inversé pour canvas HTML (Y vers le bas)
   const targetPixelX = origin.x + uiState.targetX * scale;
-  const targetPixelY = origin.y + uiState.targetY * scale;
+  const targetPixelY = origin.y - uiState.targetY * scale;
 
   // Cercle cible
   ctx.strokeStyle = uiState.isDragging ? "#ff0000" : "#ffaa00";
@@ -442,8 +462,9 @@ function getMousePositionMM(e) {
   const origin = getCanvasOrigin();
   const scale = getCanvasScale();
 
+  // Y inversé pour canvas HTML (Y vers le bas)
   const x = (pixelX - origin.x) / scale;
-  const y = (pixelY - origin.y) / scale;
+  const y = -(pixelY - origin.y) / scale;
 
   return { x, y };
 }
@@ -517,4 +538,20 @@ export function setTarget(x, y) {
   saveUIState();
   redrawCanvas();
   updateServoPanelValues();
+}
+
+/**
+ * Met la position en neutre (90°/90° réels = fémur vers le bas, tibia horizontal)
+ */
+export function setNeutralPosition() {
+  // Position physique : fémur vertical vers le bas (-Y) + tibia horizontal (parallèle à X)
+  // Cette position correspond à HIP=90° et KNEE=90° sur les servos
+  uiState.targetX = 21;    // Tibia vers la droite (L2)
+  uiState.targetY = -46;   // Fémur vers le bas (L1)
+  
+  saveUIState();
+  redrawCanvas();
+  updateServoPanelValues();
+  
+  console.log(`📐 Position neutre: (${uiState.targetX}, ${uiState.targetY}) mm`);
 }

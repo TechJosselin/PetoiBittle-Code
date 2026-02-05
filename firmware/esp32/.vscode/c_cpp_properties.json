@@ -174,12 +174,14 @@
                 "D:/pio/packages/framework-espidf/components/rt/include",
                 "D:/pio/packages/framework-espidf/components/spiffs/include",
                 "D:/pio/packages/framework-espidf/components/wifi_provisioning/include",
+                "D:/Projet/ProjetPetoiBittle/firmware/esp32/managed_components/joltwallet__littlefs/include",
                 "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/main",
                 "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/wifi",
                 "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/webserver",
                 "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/led",
                 "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/oled",
                 "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/pca9685",
+                "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/mpu9250",
                 ""
             ],
             "browse": {
@@ -351,12 +353,14 @@
                     "D:/pio/packages/framework-espidf/components/rt/include",
                     "D:/pio/packages/framework-espidf/components/spiffs/include",
                     "D:/pio/packages/framework-espidf/components/wifi_provisioning/include",
+                    "D:/Projet/ProjetPetoiBittle/firmware/esp32/managed_components/joltwallet__littlefs/include",
                     "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/main",
                     "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/wifi",
                     "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/webserver",
                     "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/led",
                     "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/oled",
                     "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/pca9685",
+                    "D:/Projet/ProjetPetoiBittle/firmware/esp32/src/mpu9250",
                     ""
                 ]
             },

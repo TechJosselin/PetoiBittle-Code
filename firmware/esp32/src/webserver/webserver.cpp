@@ -3,351 +3,69 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_littlefs.h"
 #include "led.h"
 #include "pca9685.h"
 #include "mpu9250.h"
+#include "littlefs_helper.h"
 #include "ik_page.h"
 #include "cJSON.h"
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
 #include <cmath>
-//ZIZI
+
 namespace webserver {
-//ZIZI
 static const char* TAG = "WebServer";
 static httpd_handle_t s_server = nullptr;
 
-// Page HTML d'accueil
-static const char* HTML_HOME = R"rawliteral(
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bittle Robot Control</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 600px;
-            width: 100%;
-            padding: 40px;
-        }
-        h1 {
-            color: #667eea;
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-        .robot-emoji {
-            font-size: 4em;
-            text-align: center;
-            margin: 20px 0;
-        }
-        .subtitle {
-            color: #666;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 1.1em;
-        }
-        .info-box {
-            background: #f7f9fc;
-            border-left: 4px solid #667eea;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 8px;
-        }
-        .info-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .info-item:last-child { border-bottom: none; }
-        .label { font-weight: 600; color: #333; }
-        .value { color: #667eea; font-family: 'Courier New', monospace; }
-        .status {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            background: #4ade80;
-            color: white;
-            font-weight: 600;
-            font-size: 0.9em;
-        }
-        .control-section {
-            margin-top: 30px;
-            padding-top: 30px;
-            border-top: 2px solid #f0f0f0;
-        }
-        .control-title {
-            font-size: 1.5em;
-            color: #333;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .btn {
-            width: 100%;
-            padding: 15px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
-        }
-        .btn-secondary:hover {
-            background: #e0e0e0;
-        }
-        .input-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            margin: 10px 0;
-        }
-        .input-row label {
-            font-weight: 600;
-            color: #333;
-        }
-        .input-row select,
-        .input-row input {
-            flex: 1;
-            padding: 8px 10px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 1em;
-        }
-        .slider {
-            width: 100%;
-            height: 8px;
-            border-radius: 5px;
-            background: #ddd;
-            outline: none;
-            -webkit-appearance: none;
-            appearance: none;
-        }
-        .slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #667eea;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(102, 126, 234, 0.4);
-        }
-        .slider::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #667eea;
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 2px 5px rgba(102, 126, 234, 0.4);
-        }
-        .slider-value {
-            font-weight: 600;
-            color: #667eea;
-            font-size: 1.2em;
-            min-width: 50px;
-            text-align: center;
-        }
-        .footer {
-            margin-top: 30px;
-            text-align: center;
-            color: #999;
-            font-size: 0.9em;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="robot-emoji">🤖</div>
-        <h1>Bittle Robot</h1>
-        <p class="subtitle">Panneau de contrôle</p>
+/**
+ * Récupère le type MIME pour une extension de fichier
+ */
+static const char* get_mime_type(const char* filepath) {
+    if (strstr(filepath, ".html")) return "text/html";
+    if (strstr(filepath, ".css")) return "text/css";
+    if (strstr(filepath, ".js")) return "application/javascript";
+    if (strstr(filepath, ".json")) return "application/json";
+    if (strstr(filepath, ".png")) return "image/png";
+    if (strstr(filepath, ".jpg") || strstr(filepath, ".jpeg")) return "image/jpeg";
+    if (strstr(filepath, ".svg")) return "image/svg+xml";
+    return "text/plain";
+}
+
+/**
+ * Sert un fichier depuis littleFS ou fallback à ik_page.h
+ */
+static esp_err_t serve_file_from_littlefs(httpd_req_t *req, const char* filepath) {
+    char* content = littlefs::read_file(filepath);
+    
+    if (!content) {
+        ESP_LOGW(TAG, "File not found in littleFS: %s (size: %zu)", filepath, strlen(filepath));
         
-        <div class="info-box">
-            <div class="info-item">
-                <span class="label">État</span>
-                <span class="status">● En ligne</span>
-            </div>
-            <div class="info-item">
-                <span class="label">Réseau WiFi</span>
-                <span class="value">Bittle-Robot</span>
-            </div>
-            <div class="info-item">
-                <span class="label">Adresse IP</span>
-                <span class="value">192.168.4.1</span>
-            </div>
-            <div class="info-item">
-                <span class="label">Plateforme</span>
-                <span class="value">ESP32-C6</span>
-            </div>
-        </div>
-
-        <div class="control-section">
-            <h2 class="control-title">LED</h2>
-            <button class="btn btn-primary" onclick="sendCommand('led_on')">💡 LED ON</button>
-            <button class="btn btn-primary" onclick="sendCommand('led_off')">🌑 LED OFF</button>
-        </div>
-
-        <div class="control-section">
-            <h2 class="control-title">PWM / Servo (16 sorties)</h2>
-            <div class="input-row">
-                <label for="servoChannel">Canal (0-15)</label>
-                <select id="servoChannel">
-                    <option>0</option><option>1</option><option>2</option><option>3</option>
-                    <option>4</option><option>5</option><option>6</option><option>7</option>
-                    <option>8</option><option>9</option><option>10</option><option>11</option>
-                    <option>12</option><option>13</option><option>14</option><option>15</option>
-                </select>
-            </div>
-            <div class="input-row">
-                <label for="servoAngle">Angle</label>
-                <span class="slider-value"><span id="angleValue">90</span>°</span>
-            </div>
-            <input id="servoAngle" class="slider" type="range" min="0" max="180" value="90" oninput="updateServo()" />
-        </div>
-
-        <div class="control-section">
-            <h2 class="control-title">📊 Capteurs IMU (MPU-9250)</h2>
-            <div class="info-box">
-                <div class="info-item">
-                    <span class="label">Accélération X</span>
-                    <span class="value"><span id="imu_accel_x">0.00</span> g</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Accélération Y</span>
-                    <span class="value"><span id="imu_accel_y">0.00</span> g</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Accélération Z</span>
-                    <span class="value"><span id="imu_accel_z">0.00</span> g</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Gyroscope X</span>
-                    <span class="value"><span id="imu_gyro_x">0.00</span> °/s</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Gyroscope Y</span>
-                    <span class="value"><span id="imu_gyro_y">0.00</span> °/s</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Gyroscope Z</span>
-                    <span class="value"><span id="imu_gyro_z">0.00</span> °/s</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Pitch (X)</span>
-                    <span class="value"><span id="imu_pitch">0.00</span>°</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Roll (Y)</span>
-                    <span class="value"><span id="imu_roll">0.00</span>°</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Yaw (Z)</span>
-                    <span class="value"><span id="imu_yaw">0.00</span>°</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="footer">
-            PetoiBittle v1.0 - ESP-IDF
-        </div>
-    </div>
-
-    <script>
-        // Mise à jour des données IMU
-        function updateIMU() {
-            fetch('/api/imu')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('imu_accel_x').textContent = data.accel.x.toFixed(2);
-                    document.getElementById('imu_accel_y').textContent = data.accel.y.toFixed(2);
-                    document.getElementById('imu_accel_z').textContent = data.accel.z.toFixed(2);
-                    document.getElementById('imu_gyro_x').textContent = data.gyro.x.toFixed(2);
-                    document.getElementById('imu_gyro_y').textContent = data.gyro.y.toFixed(2);
-                    document.getElementById('imu_gyro_z').textContent = data.gyro.z.toFixed(2);
-                    document.getElementById('imu_pitch').textContent = data.angles.pitch.toFixed(2);
-                    document.getElementById('imu_roll').textContent = data.angles.roll.toFixed(2);
-                    document.getElementById('imu_yaw').textContent = data.angles.yaw.toFixed(2);
-                })
-                .catch(error => {
-                    console.error('Erreur IMU:', error);
-                });
+        // Fallback: Si c'est la racine ET pas sur littleFS, utiliser ik_page.h compilée
+        if (strcmp(req->uri, "/") == 0) {
+            ESP_LOGI(TAG, "Fallback to embedded HTML_IK_PAGE");
+            httpd_resp_set_type(req, "text/html");
+            httpd_resp_send(req, HTML_IK_PAGE, HTTPD_RESP_USE_STRLEN);
+            return ESP_OK;
         }
+        
+        httpd_resp_set_status(req, "404 Not Found");
+        httpd_resp_set_type(req, "text/plain");
+        httpd_resp_send(req, "File not found", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+    
+    httpd_resp_set_type(req, get_mime_type(filepath));
+    httpd_resp_send(req, content, strlen(content));
+    free(content);
+    return ESP_OK;
+}
 
-        // Lancer les mises à jour toutes les 100ms
-        setInterval(updateIMU, 100);
-        updateIMU(); // Mise à jour initiale
-
-        function sendCommand(cmd) {
-            fetch('/api/cmd?action=' + cmd)
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Commande exécutée:', data);
-                })
-                .catch(error => {
-                    console.error('Erreur:', error);
-                });
-        }
-
-        function updateServo() {
-            const ch = document.getElementById('servoChannel').value;
-            const angle = document.getElementById('servoAngle').value;
-            document.getElementById('angleValue').textContent = angle;
-            
-            const url = `/api/cmd?action=servo&ch=${ch}&angle=${angle}`;
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Servo:', data);
-                })
-                .catch(error => {
-                    console.error('Erreur servo:', error);
-                });
-        }
-
-    </script>
-</body>
-</html>
-)rawliteral";
-
-// Handler pour la page d'accueil
-static esp_err_t home_handler(httpd_req_t *req)
+static esp_err_t ik_home_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "GET / - Client: %s", req->uri);
-    httpd_resp_set_type(req, "text/html");
-    // Servir la page IK complète à la racine
-    httpd_resp_send(req, HTML_IK_PAGE, HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
+    return serve_file_from_littlefs(req, "/littlefs/index.html");
 }
 
 // Handler pour l'API de commandes
@@ -574,13 +292,38 @@ static esp_err_t ik_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+// Handler générique pour les fichiers statiques (CSS, JS, etc)
+static esp_err_t static_file_handler(httpd_req_t *req)
+{
+    ESP_LOGD(TAG, "GET %s", req->uri);
+    
+    // Construire le chemin complet dans littleFS
+    char filepath[1024];  // Amplement suffisant pour "/littlefs" + URI
+    int len = snprintf(filepath, sizeof(filepath), "/littlefs%s", req->uri);
+    
+    // Vérifier le débordement
+    if (len < 0 || len >= (int)sizeof(filepath)) {
+        ESP_LOGW(TAG, "URI too long: %s", req->uri);
+        httpd_resp_set_status(req, "414 URI Too Long");
+        httpd_resp_send(req, "URI too long", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+    
+    return serve_file_from_littlefs(req, filepath);
+}
+
 bool start(int port)
 {
+    // Initialiser littleFS
+    if (!littlefs::init()) {
+        ESP_LOGW(TAG, "littleFS initialization failed - will use embedded HTML");
+    }
+    
     ESP_LOGI(TAG, "Démarrage serveur web sur port %d...", port);
     
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = port;
-    config.max_uri_handlers = 10;
+    config.max_uri_handlers = 16;  // Augmenté pour les fichiers statiques
     config.stack_size = 8192;
     
     if (httpd_start(&s_server, &config) != ESP_OK) {
@@ -592,10 +335,19 @@ bool start(int port)
     httpd_uri_t home_uri = {
         .uri = "/",
         .method = HTTP_GET,
-        .handler = home_handler,
+        .handler = ik_home_handler,
         .user_ctx = nullptr
     };
     httpd_register_uri_handler(s_server, &home_uri);
+    
+    // Handler générique pour les fichiers statiques
+    httpd_uri_t static_uri = {
+        .uri = "/*",
+        .method = HTTP_GET,
+        .handler = static_file_handler,
+        .user_ctx = nullptr
+    };
+    httpd_register_uri_handler(s_server, &static_uri);
     
     httpd_uri_t api_cmd_uri = {
         .uri = "/api/cmd",

@@ -174,3 +174,31 @@ export function clampTarget(x, y) {
     y: rClamped * Math.sin(angle),
   };
 }
+
+/**
+ * Cinématique directe (forward kinematics) - Calcule la position du pied à partir des angles
+ * Convention: 0° = jambe repliée vers l'arrière, 90° = jambe vertical vers le haut, 180° = jambe vers l'avant
+ * @param {number} hipDeg - Angle hanche en degrés
+ * @param {number} kneeDeg - Angle genou en degrés (angle interne)
+ * @param {boolean} elbowUp - Configuration elbow-up
+ * @returns {object} {x, y} position du pied en mm
+ */
+export function forwardKinematics(hipDeg, kneeDeg, elbowUp = false) {
+  // Décalage pour aligner la convention réelle (0° vers l'arrière, 90° vers le haut)
+  const hipRad = ((hipDeg - 90) * Math.PI) / 180; // Rotation de 90° pour correspondre à la réalité
+  const kneeRad = (kneeDeg * Math.PI) / 180;
+
+  // Position du genou (fin du fémur)
+  // À 90°, le fémur pointe vers le haut (Y positif)
+  const kneeX = L1_FEMUR * Math.sin(hipRad);
+  const kneeY = L1_FEMUR * Math.cos(hipRad);
+
+  // Angle du tibia = angle hanche + angle genou
+  const footAngle = hipRad + kneeRad;
+
+  // Position du pied
+  const footX = kneeX + L2_TIBIA * Math.sin(footAngle);
+  const footY = kneeY + L2_TIBIA * Math.cos(footAngle);
+
+  return { x: footX, y: footY };
+}

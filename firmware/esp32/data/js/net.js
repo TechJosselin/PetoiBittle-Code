@@ -3,8 +3,9 @@
  * Support HTTP REST et WebSocket
  */
 
-import { applyServoConfig, getServoConfig } from "./config.js";
-import { SERVO_CONFIG, SERVO_MAPPING } from "./config.js";
+import { applyServoConfig } from "./ik.js";
+import { getServoConfig, SERVO_CONFIG, SERVO_MAPPING } from "./config.js";
+import { setNeutralPosition } from "./ui.js";
 
 // État réseau
 let networkState = {
@@ -181,19 +182,92 @@ function buildServoPayload(servoData) {
 /**
  * Envoie une position neutre (90°) pour tous les servos d'une patte
  */
+/**
+ * Envoie la position neutre (90°) à toutes les pattes
+ */
 function handleSendNeutral(e) {
-  const { leg } = e.detail;
-  console.log(`🔄 Sending neutral (90°) to ${leg}`);
+  console.log(`🔄 Sending neutral (90°) to ALL legs`);
+  
+  // Mettre à jour la visualisation graphique
+  setNeutralPosition();
+  
+  // Envoyer les commandes aux servos
+  sendAllServosNeutral();
+}
 
-  sendServos({
-    leg,
-    angles: {
-      hipDeg: 90,
-      kneeDeg: 90,
-      targetX: 0,
-      targetY: 0,
-    },
+/**
+ * Envoie 90° à tous les 8 servos en une seule requête
+ */
+async function sendAllServosNeutral() {
+  // Construire le payload avec tous les 8 servos
+  const allServos = [];
+  const allLegs = ["LF", "LR", "RF", "RR"];
+
+  allLegs.forEach(leg => {
+    const hipConfig = getServoConfig(leg, "HIP");
+    const kneeConfig = getServoConfig(leg, "KNEE");
+
+    if (hipConfig && kneeConfig) {
+      // Appliquer la config (offsets, inversions) pour chaque servo
+      const hipServoDeg = applyServoConfig(90, hipConfig);
+      const kneeServoDeg = applyServoConfig(90, kneeConfig);
+
+      allServos.push({
+        name: hipConfig.name,
+        pcaChannel: hipConfig.pcaChannel,
+        deg: hipServoDeg,
+      });
+
+      allServos.push({
+        name: kneeConfig.name,
+        pcaChannel: kneeConfig.pcaChannel,
+        deg: kneeServoDeg,
+      });
+    }
   });
+
+  const payload = {
+    command: "neutral",
+    servos: allServos,
+  };
+
+  if (networkState.simulationMode) {
+    console.log("[SIMULATION] All servos to neutral (90°)");
+    const outputEl = document.getElementById("simulationOutput");
+    if (outputEl) {
+      outputEl.textContent = JSON.stringify(payload, null, 2);
+    }
+    return true;
+  }
+
+  if (!networkState.isConnected) {
+    console.warn("⚠️ Not connected to ESP32");
+    return false;
+  }
+
+  try {
+    console.log("📤 Sending ALL servos to neutral:", payload);
+
+    if (networkState.protocol === "ws" && networkState.wsConnected) {
+      ws.send(JSON.stringify(payload));
+    } else {
+      // HTTP REST
+      const response = await fetch(`http://${networkState.ip}:${networkState.port}/api/servos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    }
+
+    return true;
+  } catch (e) {
+    console.error("✗ Failed to send neutral position:", e);
+    return false;
+  }
 }
 
 /**

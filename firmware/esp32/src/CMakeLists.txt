@@ -14,5 +14,8 @@ idf_component_register(
     "${CMAKE_CURRENT_LIST_DIR}/led"
     "${CMAKE_CURRENT_LIST_DIR}/oled"
     "${CMAKE_CURRENT_LIST_DIR}/pca9685"
+    "${CMAKE_CURRENT_LIST_DIR}/mpu9250"
     "${CMAKE_SOURCE_DIR}/include"
+  REQUIRES
+    joltwallet__littlefs
 )
