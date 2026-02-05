@@ -1,0 +1,70 @@
+############################
+# General
+############################
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
+*~
+*.swp
+
+# Secrets / local env
+.env
+.env.*
+secrets.*
+*.key
+*.pem
+
+############################
+# VS Code
+############################
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+############################
+# PlatformIO
+############################
+.pio/
+.pioenvs/
+.piolibdeps/
+.pio/build/
+.pio/libdeps/
+
+# Optional: if you use clangd or compile_commands
+compile_commands.json
+
+############################
+# Visual Studio / .NET / Windows Forms
+############################
+.vs/
+[Bb]in/
+[Oo]bj/
+TestResults/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+############################
+# NuGet
+############################
+packages/
+*.nupkg
+# keep packages lock if you use it
+# packages.lock.json
+
+############################
+# Build artifacts (optionnel)
+############################
+*.exe
+*.dll
+*.pdb
+*.cache
