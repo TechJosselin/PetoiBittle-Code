@@ -9,13 +9,9 @@ idf_component_register(
   INCLUDE_DIRS
     "${CMAKE_CURRENT_LIST_DIR}"
     "${CMAKE_CURRENT_LIST_DIR}/main"
-    "${CMAKE_CURRENT_LIST_DIR}/wifi"
-    "${CMAKE_CURRENT_LIST_DIR}/webserver"
     "${CMAKE_CURRENT_LIST_DIR}/led"
-    "${CMAKE_CURRENT_LIST_DIR}/oled"
+    "${CMAKE_CURRENT_LIST_DIR}/webserver"
     "${CMAKE_CURRENT_LIST_DIR}/pca9685"
     "${CMAKE_CURRENT_LIST_DIR}/mpu9250"
     "${CMAKE_SOURCE_DIR}/include"
-  REQUIRES
-    joltwallet__littlefs
 )
