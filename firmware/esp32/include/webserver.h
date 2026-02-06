@@ -29,6 +29,12 @@ bool init(uint16_t port = 80);
 void stop();
 
 /**
+ * Démarre la capture des logs ESP dans un ring buffer
+ * accessible via /api/logs
+ */
+void start_log_capture();
+
+/**
  * Obtient l'adresse IP du serveur
  * 
  * @param buffer Buffer pour stocker l'adresse IP

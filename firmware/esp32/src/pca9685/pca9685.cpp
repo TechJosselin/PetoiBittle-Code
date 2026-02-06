@@ -113,10 +113,17 @@ void set_pwm(uint8_t channel, uint16_t on, uint16_t off) {
     if (!s_initialized || channel > 15) return;
 
     uint8_t reg = LED0_ON_L + 4 * channel;
-    write_register(reg, on & 0xFF);
-    write_register(reg + 1, on >> 8);
-    write_register(reg + 2, off & 0xFF);
-    write_register(reg + 3, off >> 8);
+    uint8_t buf[5] = {
+        reg,
+        (uint8_t)(on & 0xFF),
+        (uint8_t)(on >> 8),
+        (uint8_t)(off & 0xFF),
+        (uint8_t)(off >> 8)
+    };
+    esp_err_t ret = i2c_master_write_to_device(s_i2c_port, s_address, buf, 5, pdMS_TO_TICKS(100));
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "set_pwm ch=%d FAIL: %s", channel, esp_err_to_name(ret));
+    }
 }
 
 void set_servo_pulse_us(uint8_t channel, uint16_t pulse_us) {
@@ -131,7 +138,20 @@ void set_servo_angle(uint8_t channel, uint8_t angle) {
     if (!s_initialized || angle > 180) return;
 
     uint16_t pulse_us = 500 + (angle * 2000) / 180;
+    ESP_LOGI(TAG, "servo ch=%d angle=%d pulse=%uus", channel, angle, pulse_us);
     set_servo_pulse_us(channel, pulse_us);
+
+    // Read-back verification: lire le registre OFF pour vérifier l'écriture
+    uint8_t reg = LED0_OFF_L + 4 * channel;
+    uint8_t readback[2] = {};
+    esp_err_t ret = i2c_master_write_read_device(s_i2c_port, s_address, &reg, 1, readback, 2, pdMS_TO_TICKS(100));
+    if (ret == ESP_OK) {
+        uint16_t off_val = readback[0] | (readback[1] << 8);
+        ESP_LOGI(TAG, "  -> readback OFF=%u (expected ~%u)", off_val,
+                 (uint16_t)((pulse_us * 4096.0f) / (1000000.0f / s_pwm_freq)));
+    } else {
+        ESP_LOGE(TAG, "  -> readback FAIL: %s", esp_err_to_name(ret));
+    }
 }
 
 void all_off() {

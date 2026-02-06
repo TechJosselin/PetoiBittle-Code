@@ -6,1048 +6,636 @@ const char* html_index = R"(<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bittle Robot Control</title>
-    <link rel="stylesheet" href="/styles.css">
+    <title>🤖 Bittle Robot IK Control</title>
+    <style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);color:#333;min-height:100vh;padding:20px}
+.container{max-width:1400px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden}
+.header{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:30px;border-bottom:4px solid #fa0}
+.header h1{font-size:2.2em;margin-bottom:15px;text-shadow:2px 2px 4px rgba(0,0,0,.3)}
+.status-bar{display:flex;gap:30px;flex-wrap:wrap;font-size:.95em}
+.status-item{background:rgba(255,255,255,.2);padding:8px 12px;border-radius:6px;border-left:3px solid #fa0}
+.main-layout{display:grid;grid-template-columns:1.5fr 1fr;gap:30px;padding:30px;min-height:600px}
+.ik-section{display:flex;flex-direction:column;gap:15px}
+.section-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px}
+.section-header h2{font-size:1.5em;color:#667eea}
+.controls-inline{display:flex;gap:15px;align-items:center}
+.controls-inline label{font-weight:500;color:#555}
+.controls-inline select{padding:6px 10px;border:2px solid #ddd;border-radius:4px;font-size:1em;cursor:pointer;transition:border-color .3s}
+.controls-inline select:hover,.controls-inline select:focus{border-color:#667eea;outline:none}
+input[type="checkbox"]{width:18px;height:18px;cursor:pointer;accent-color:#667eea}
+.canvas-container{flex:1;display:flex;align-items:center;justify-content:center;background:#f9f9f9;border:2px solid #e0e0e0;border-radius:8px;overflow:hidden;min-height:500px}
+#ikCanvas{display:block;width:100%;height:100%;cursor:grab}
+#ikCanvas:active{cursor:grabbing}
+.canvas-info{background:#f0f4ff;padding:12px;border-radius:6px;font-size:.9em;color:#555;border-left:4px solid #667eea}
+.canvas-info p{margin:5px 0}
+.config-section,.simulation-section{background:#f9f9f9;padding:20px;border-radius:8px;border:2px solid #e0e0e0}
+.config-section h2,.simulation-section h2{font-size:1.3em;color:#667eea;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #ddd}
+.servo-config-panel{background:#fff;padding:15px;border-radius:6px;margin-bottom:15px;border:1px solid #ddd}
+.servo-config-panel h3{color:#764ba2;margin-bottom:12px;font-size:1.1em}
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.config-input{display:flex;flex-direction:column;gap:5px}
+.config-input label{font-size:.9em;font-weight:500;color:#555}
+.config-input input[type="number"]{padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:.95em;transition:border-color .3s}
+.config-input input[type="number"]:focus{border-color:#667eea;outline:none;box-shadow:0 0 0 3px rgba(102,126,234,.1)}
+.servo-output{background:#f0f4ff;padding:8px 12px;border-radius:4px;font-weight:600;color:#667eea;font-size:.95em;border-left:3px solid #667eea}
+.servo-output span{font-size:1.1em}
+.button-group{display:flex;gap:10px;margin-top:20px}
+.btn{flex:1;padding:12px 20px;border:none;border-radius:6px;font-size:1em;font-weight:600;cursor:pointer;transition:all .3s;text-align:center;min-height:44px}
+.btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 20px rgba(102,126,234,.3)}
+.btn-secondary{background:#fa0;color:#fff}
+.btn-secondary:hover{background:#ff9500;transform:translateY(-2px);box-shadow:0 10px 20px rgba(255,170,0,.3)}
+.btn:active{transform:translateY(0)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.simulation-section{margin-top:20px}
+.toggle-label{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:500;margin-bottom:15px}
+.info-text{background:#fff3cd;padding:10px;border-radius:4px;font-size:.9em;color:#856404;border-left:3px solid #ffc107;margin-bottom:15px}
+.code-block{background:#1e1e1e;color:#d4d4d4;padding:15px;border-radius:6px;font-family:'Courier New',monospace;font-size:.9em;line-height:1.5;overflow:auto;max-height:300px;border:1px solid #444}
+.documentation{background:#f5f5f5;padding:30px;border-top:2px solid #ddd}
+.documentation h3{color:#667eea;margin-bottom:20px;font-size:1.3em}
+details{border:1px solid #ddd;border-radius:6px;padding:15px;background:#fff;margin-bottom:15px}
+details summary{cursor:pointer;font-weight:600;color:#667eea;user-select:none;padding:10px;margin:-10px;border-radius:4px;transition:background .3s}
+details summary:hover{background:#f0f4ff}
+.doc-content{margin-top:15px;padding-top:15px;border-top:1px solid #eee}
+.doc-content h4{color:#764ba2;margin:15px 0 10px}
+.doc-content ul{margin:0 0 10px 20px}
+.doc-content li{margin:5px 0;line-height:1.6}
+.doc-content code{background:#f0f4ff;padding:2px 6px;border-radius:3px;font-family:'Courier New',monospace;color:#667eea}
+.doc-content pre{background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:4px;font-family:'Courier New',monospace;font-size:.9em;overflow-x:auto;margin:10px 0}
+.mapping-table{width:100%;border-collapse:collapse;margin:15px 0;background:#fff;border:1px solid #ddd}
+.mapping-table th,.mapping-table td{padding:10px;text-align:left;border-bottom:1px solid #ddd}
+.mapping-table th{background:#667eea;color:#fff;font-weight:600}
+.mapping-table tr:nth-child(even){background:#f9f9f9}
+.mapping-table tr:hover{background:#f0f4ff}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #667eea;outline-offset:2px}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:#f1f1f1;border-radius:10px}
+::-webkit-scrollbar-thumb{background:#667eea;border-radius:10px}
+::-webkit-scrollbar-thumb:hover{background:#764ba2}
+@media(max-width:1100px){.main-layout{grid-template-columns:1fr}}
+@media(max-width:800px){.header h1{font-size:1.6em}.status-bar{gap:15px}.button-group,.controls-inline{flex-direction:column}.controls-inline{align-items:flex-start;width:100%}.section-header{flex-direction:column;align-items:flex-start}}
+@media(max-width:600px){.config-grid{grid-template-columns:1fr}}
+.init-mode-panel{background:#fff3cd;padding:15px;border-radius:6px;margin-top:15px;border:2px solid #ffc107}
+.init-mode-panel .toggle-label span{font-size:1.05em}
+.init-mode-panel.active{background:#d4edda;border-color:#28a745}
+.init-status{font-size:.9em;font-weight:600;padding:6px 10px;border-radius:4px;margin-top:8px;text-align:center}
+.init-status.locked{background:#28a745;color:#fff}
+.init-status.free{background:#6c757d;color:#fff}
+.console-section{background:#1a1a2e;padding:20px;border-top:3px solid #667eea}
+.console-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.console-header h3{color:#0f0;font-family:'Courier New',monospace;font-size:1.1em}
+.console-controls{display:flex;gap:10px;align-items:center}
+.console-controls button{background:#333;color:#ccc;border:1px solid #555;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:.85em;transition:all .2s}
+.console-controls button:hover{background:#555;color:#fff}
+.console-controls button.active{background:#667eea;color:#fff;border-color:#667eea}
+.console-status{font-size:.8em;color:#888;font-family:'Courier New',monospace}
+#consoleOutput{background:#0d0d1a;color:#d4d4d4;font-family:'Courier New',monospace;font-size:.82em;line-height:1.6;padding:12px;border-radius:6px;height:250px;overflow-y:auto;border:1px solid #333;white-space:pre-wrap;word-break:break-all}
+#consoleOutput .log-E{color:#f55}
+#consoleOutput .log-W{color:#fa0}
+#consoleOutput .log-I{color:#0c0}
+#consoleOutput .log-D{color:#08f}
+#consoleOutput .log-V{color:#888}
+</style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>🤖 Bittle Robot Control</h1>
+        <header class="header">
+            <h1>🤖 Bittle Robot - Contrôle Inverse Cinématique</h1>
             <div class="status-bar">
-                <span class="status-item">
-                    <span class="status-label">Connection:</span>
-                    <span id="connection-status" class="status-value">Disconnected</span>
-                </span>
-                <span class="status-item">
-                    <span class="status-label">Battery:</span>
-                    <span id="battery-status" class="status-value">--V</span>
-                </span>
+                <div id="networkStatus" class="status-item">📡 État réseau...</div>
+                <div class="status-item">Platform: ESP32-C6</div>
+                <div class="status-item">LED: OFF</div>
             </div>
         </header>
 
-        <div class="main-content">
-            <!-- Visualisation IK -->
-            <div class="panel">
-                <h2>Robot Visualization</h2>
-                <canvas id="robot-canvas" width="600" height="600"></canvas>
-            </div>
-
-            <!-- Contrôles -->
-            <div class="panel controls-panel">
-                <h2>Controls</h2>
-                
-                <div class="control-section">
-                    <h3>Position Target</h3>
-                    <div class="slider-group">
-                        <label>
-                            X: <span id="target-x-value">0</span> cm
-                            <input type="range" id="target-x" min="-15" max="15" step="0.5" value="0">
-                        </label>
-                        <label>
-                            Y: <span id="target-y-value">-12</span> cm
-                            <input type="range" id="target-y" min="-20" max="5" step="0.5" value="-12">
+        <div class="main-layout">
+            <section class="ik-section">
+                <div class="section-header">
+                    <h2>📐 Visualisation IK</h2>
+                    <div class="controls-inline">
+                        <label for="legSelect">Patte:</label>
+                        <select id="legSelect">
+                            <option value="LF">LF (Avant-Gauche)</option>
+                            <option value="LR">LR (Arrière-Gauche)</option>
+                            <option value="RF">RF (Avant-Droit)</option>
+                            <option value="RR">RR (Arrière-Droit)</option>
+                        </select>
+                        <label for="elbowUpToggle">
+                            <input type="checkbox" id="elbowUpToggle"> Elbow-UP
                         </label>
                     </div>
                 </div>
+                <div id="canvasContainer" class="canvas-container">
+                    <canvas id="ikCanvas" width="600" height="500"></canvas>
+                </div>
+                <div class="canvas-info">
+                    <p>🖱️ Drag la cible (⭕ orange) pour modifier la position du pied.</p>
+                    <p>Axe X (rouge) = horizontal | Axe Y (bleu) = vertical | Origine (0,0) = hanche</p>
+                </div>
+            </section>
 
-                <div class="control-section">
-                    <h3>Leg Selection</h3>
-                    <div class="leg-buttons">
-                        <button class="leg-btn active" data-leg="0">Front Left</button>
-                        <button class="leg-btn" data-leg="1">Front Right</button>
-                        <button class="leg-btn" data-leg="2">Rear Left</button>
-                        <button class="leg-btn" data-leg="3">Rear Right</button>
+            <section class="config-section">
+                <h2>⚙️ Configuration Servo</h2>
+                <div class="servo-config-panel">
+                    <h3>HIP (Hanche)</h3>
+                    <div class="config-grid">
+                        <div class="config-input"><label for="hipOffsetInput">Offset (°):</label><input type="number" id="hipOffsetInput" value="0" step="1" min="-90" max="90"></div>
+                        <div class="config-input"><label><input type="checkbox" id="hipInvertCheck"> Inverser</label></div>
+                        <div class="config-input"><label for="hipMinInput">Min (°):</label><input type="number" id="hipMinInput" value="0" step="1" min="0" max="180"></div>
+                        <div class="config-input"><label for="hipMaxInput">Max (°):</label><input type="number" id="hipMaxInput" value="180" step="1" min="0" max="180"></div>
                     </div>
+                    <div class="servo-output">Angle Servo: <span id="hipOutputValue">90.0</span>°</div>
+                </div>
+                <div class="servo-config-panel">
+                    <h3>KNEE (Genou)</h3>
+                    <div class="config-grid">
+                        <div class="config-input"><label for="kneeOffsetInput">Offset (°):</label><input type="number" id="kneeOffsetInput" value="0" step="1" min="-90" max="90"></div>
+                        <div class="config-input"><label><input type="checkbox" id="kneeInvertCheck"> Inverser</label></div>
+                        <div class="config-input"><label for="kneeMinInput">Min (°):</label><input type="number" id="kneeMinInput" value="0" step="1" min="0" max="180"></div>
+                        <div class="config-input"><label for="kneeMaxInput">Max (°):</label><input type="number" id="kneeMaxInput" value="180" step="1" min="0" max="180"></div>
+                    </div>
+                    <div class="servo-output">Angle Servo: <span id="kneeOutputValue">90.0</span>°</div>
+                </div>
+                <div class="button-group">
+                    <button id="sendNeutralBtn" class="btn btn-secondary">🔄 Neutre (90°)</button>
+                    <button id="sendCurrentBtn" class="btn btn-primary">📤 Envoyer Angles</button>
                 </div>
 
-                <div class="control-section">
-                    <h3>Preset Positions</h3>
-                    <div class="preset-buttons">
-                        <button class="preset-btn" data-preset="stand">Stand</button>
-                        <button class="preset-btn" data-preset="sit">Sit</button>
-                        <button class="preset-btn" data-preset="rest">Rest</button>
-                        <button class="preset-btn" data-preset="stretch">Stretch</button>
-                    </div>
+                <div class="init-mode-panel">
+                    <label for="initModeToggle" class="toggle-label">
+                        <input type="checkbox" id="initModeToggle">
+                        <span>🔒 Mode Initialisation</span>
+                    </label>
+                    <p class="info-text">Verrouille les servos à leur position actuelle. Décocher pour les libérer (servos libres, déplaçables à la main).</p>
+                    <div id="initModeStatus" class="init-status">Servos libres</div>
                 </div>
+            </section>
 
-                <div class="control-section">
-                    <h3>Manual Servo Control</h3>
-                    <div class="servo-controls">
-                        <div class="servo-group">
-                            <label>
-                                Shoulder (θ1): <span id="servo0-value">90</span>°
-                                <input type="range" id="servo0" min="0" max="180" step="1" value="90">
-                            </label>
-                            <label>
-                                Elbow (θ2): <span id="servo1-value">90</span>°
-                                <input type="range" id="servo1" min="0" max="180" step="1" value="90">
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="control-section">
-                    <h3>Actions</h3>
-                    <div class="action-buttons">
-                        <button id="btn-calibrate" class="action-btn">Calibrate</button>
-                        <button id="btn-center" class="action-btn">Center All</button>
-                        <button id="btn-emergency" class="action-btn emergency">Emergency Stop</button>
-                    </div>
-                </div>
-            </div>
+            <section class="simulation-section">
+                <h2>🎮 Mode Simulation</h2>
+                <label for="simulationToggle" class="toggle-label">
+                    <input type="checkbox" id="simulationToggle">
+                    <span>Activer Mode Simulation</span>
+                </label>
+                <p class="info-text">En mode simulation, les commandes ne sont pas envoyées à l'ESP32, mais affichées en JSON pour debug.</p>
+                <div id="simulationOutput" class="code-block">{ "leg": "LF", "angles": { "hipDeg": 0, "kneeDeg": 0 } }</div>
+            </section>
         </div>
 
-        <!-- Panneau d'informations -->
-        <div class="panel info-panel">
-            <h2>Robot Information</h2>
-            <div class="info-grid">
-                <div class="info-item">
-                    <span class="info-label">Selected Leg:</span>
-                    <span id="info-leg" class="info-value">Front Left (0)</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Target Position:</span>
-                    <span id="info-target" class="info-value">X: 0cm, Y: -12cm</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Calculated Angles:</span>
-                    <span id="info-angles" class="info-value">θ1: --°, θ2: --°</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">IK Status:</span>
-                    <span id="info-ik-status" class="info-value">Valid</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Console de logs -->
-        <div class="panel console-panel">
+        <section class="console-section">
             <div class="console-header">
-                <h2>Console</h2>
-                <button id="btn-clear-console" class="btn-clear">Clear</button>
+                <h3>&#x1F4DF; Serial Console</h3>
+                <div class="console-controls">
+                    <span id="consoleStatus" class="console-status">Connecting...</span>
+                    <button id="consolePauseBtn" title="Pause/Resume">&#x23F8; Pause</button>
+                    <button id="consoleClearBtn" title="Clear">&#x1F5D1; Clear</button>
+                    <button id="consoleAutoScrollBtn" class="active" title="Auto-scroll">&#x2B07; Auto-scroll</button>
+                </div>
             </div>
-            <div id="console" class="console"></div>
-        </div>
+            <div id="consoleOutput"></div>
+        </section>
+
+        <footer class="documentation">
+            <h3>📖 Documentation IK</h3>
+            <details>
+                <summary><strong>Conventions & Documentation</strong></summary>
+                <div class="doc-content">
+                    <h4>Repère Cartésien:</h4>
+                    <ul>
+                        <li><strong>Origine (0, 0)</strong> = articulation hanche</li>
+                        <li><strong>Axe X</strong> = horizontal (positif vers l'avant)</li>
+                        <li><strong>Axe Y</strong> = vertical (positif vers le bas)</li>
+                        <li><strong>Unité</strong> = millimètres (mm)</li>
+                    </ul>
+                    <h4>Dimensions Physiques:</h4>
+                    <ul>
+                        <li><strong>L1 (Fémur)</strong> = 46 mm | <strong>L2 (Tibia)</strong> = 21 mm | <strong>Portée</strong> = 25–67 mm</li>
+                    </ul>
+                    <h4>Calcul IK:</h4>
+                    <ul>
+                        <li><code>r = √(x² + y²)</code> — <code>cosK = (r² - L1² - L2²) / (2·L1·L2)</code></li>
+                        <li><code>K = acos(cosK)</code> — <code>A = atan2(y, x)</code> — <code>B = atan2(L2·sin(K), L1 + L2·cos(K))</code></li>
+                        <li><strong>Elbow-DOWN:</strong> HIP = A - B | <strong>Elbow-UP:</strong> HIP = A + B</li>
+                    </ul>
+                    <h4>Mapping Servo PCA9685:</h4>
+                    <table class="mapping-table">
+                        <tr><th>Patte</th><th>Joint</th><th>Canal PCA</th><th>Servo Name</th></tr>
+                        <tr><td rowspan="2">LF</td><td>HIP</td><td>0</td><td>LF_HIP</td></tr>
+                        <tr><td>KNEE</td><td>1</td><td>LF_KNEE</td></tr>
+                        <tr><td rowspan="2">LR</td><td>HIP</td><td>2</td><td>LR_HIP</td></tr>
+                        <tr><td>KNEE</td><td>3</td><td>LR_KNEE</td></tr>
+                        <tr><td rowspan="2">RF</td><td>HIP</td><td>4</td><td>RF_HIP</td></tr>
+                        <tr><td>KNEE</td><td>5</td><td>RF_KNEE</td></tr>
+                        <tr><td rowspan="2">RR</td><td>HIP</td><td>6</td><td>RR_HIP</td></tr>
+                        <tr><td>KNEE</td><td>7</td><td>RR_KNEE</td></tr>
+                    </table>
+                    <h4>Configuration Servo:</h4>
+                    <ul>
+                        <li><strong>Offset</strong> = décalage ±90° | <strong>Invert</strong> = 180° - angle | <strong>Min/Max</strong> = limites 0-180°</li>
+                    </ul>
+                    <h4>Protocole d'envoi:</h4>
+                    <ul>
+                        <li><strong>HTTP REST:</strong> POST /api/servos | <strong>WebSocket:</strong> ws://192.168.4.1/ws</li>
+                        <li><pre>{"leg":"LF","targets":{"x":40,"y":-30,"unit":"mm"},"angles":{"hipDeg":92.3,"kneeDeg":41.7},"servos":[{"name":"LF_HIP","pcaChannel":0,"deg":92.3},{"name":"LF_KNEE","pcaChannel":1,"deg":41.7}]}</pre></li>
+                    </ul>
+                </div>
+            </details>
+        </footer>
     </div>
 
-    <script src="/js/config.js"></script>
-    <script src="/js/ik.js"></script>
-    <script src="/js/net.js"></script>
-    <script src="/js/ui.js"></script>
-</body>
-</html>)";
+<script>
+(() => {
+"use strict";
 
-// CSS
-const char* css_styles = R"(:root {
-    --primary-color: #2196F3;
-    --secondary-color: #4CAF50;
-    --danger-color: #f44336;
-    --warning-color: #ff9800;
-    --bg-color: #1a1a2e;
-    --panel-bg: #16213e;
-    --text-color: #e0e0e0;
-    --border-color: #0f3460;
-}
+// ── Config ──
+const L1 = 46, L2 = 21, MIN_R = 25, MAX_R = 67;
+const LEGS = ["LF","LR","RF","RR"];
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+// Génération dynamique config servo (remplace 8 blocs répétitifs)
+const SERVO_CFG = {};
+LEGS.forEach((leg, i) => {
+    ["HIP","KNEE"].forEach((joint, j) => {
+        const ch = i * 2 + j;
+        SERVO_CFG[`${leg}_${joint}`] = { name:`${leg}_${joint}`, pcaChannel:ch, offsetDeg:0, invert:false, minDeg:0, maxDeg:180 };
+    });
+});
 
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: var(--bg-color);
-    color: var(--text-color);
-    line-height: 1.6;
-}
+const getServoCfg = (leg, joint) => SERVO_CFG[`${leg}_${joint}`] || null;
+const $ = id => document.getElementById(id);
 
-.container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-header {
-    background: var(--panel-bg);
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    border: 2px solid var(--border-color);
-}
-
-h1 {
-    color: var(--primary-color);
-    margin-bottom: 15px;
-}
-
-h2 {
-    color: var(--primary-color);
-    margin-bottom: 15px;
-    font-size: 1.5em;
-}
-
-h3 {
-    color: var(--secondary-color);
-    margin-bottom: 10px;
-    font-size: 1.2em;
-}
-
-.status-bar {
-    display: flex;
-    gap: 30px;
-    flex-wrap: wrap;
-}
-
-.status-item {
-    display: flex;
-    gap: 10px;
-}
-
-.status-label {
-    color: #888;
-}
-
-.status-value {
-    color: var(--text-color);
-    font-weight: bold;
-}
-
-#connection-status.connected {
-    color: var(--secondary-color);
-}
-
-#connection-status.disconnected {
-    color: var(--danger-color);
-}
-
-.main-content {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 20px;
-    margin-bottom: 20px;
-}
-
-.panel {
-    background: var(--panel-bg);
-    padding: 20px;
-    border-radius: 10px;
-    border: 2px solid var(--border-color);
-}
-
-#robot-canvas {
-    display: block;
-    width: 100%;
-    max-width: 600px;
-    height: auto;
-    background: #0a0e27;
-    border-radius: 8px;
-    border: 2px solid var(--border-color);
-}
-
-.controls-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.control-section {
-    padding: 15px;
-    background: rgba(15, 52, 96, 0.3);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-}
-
-.slider-group {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.slider-group label {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-input[type="range"] {
-    width: 100%;
-    height: 8px;
-    background: var(--border-color);
-    border-radius: 4px;
-    outline: none;
-    -webkit-appearance: none;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 20px;
-    height: 20px;
-    background: var(--primary-color);
-    border-radius: 50%;
-    cursor: pointer;
-}
-
-input[type="range"]::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    background: var(--primary-color);
-    border-radius: 50%;
-    cursor: pointer;
-    border: none;
-}
-
-.leg-buttons,
-.preset-buttons,
-.action-buttons {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-}
-
-button {
-    padding: 12px 20px;
-    font-size: 14px;
-    font-weight: 600;
-    border: 2px solid var(--border-color);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    background: var(--panel-bg);
-    color: var(--text-color);
-}
-
-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
-}
-
-button:active {
-    transform: translateY(0);
-}
-
-.leg-btn.active {
-    background: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
-}
-
-.preset-btn {
-    background: linear-gradient(135deg, var(--primary-color), #1976D2);
-    border-color: var(--primary-color);
-}
-
-.action-btn {
-    background: linear-gradient(135deg, var(--secondary-color), #388E3C);
-    border-color: var(--secondary-color);
-}
-
-.action-btn.emergency {
-    background: linear-gradient(135deg, var(--danger-color), #c62828);
-    border-color: var(--danger-color);
-}
-
-.servo-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.servo-group {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.servo-group label {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.info-panel {
-    grid-column: 1 / -1;
-}
-
-.info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 15px;
-}
-
-.info-item {
-    padding: 15px;
-    background: rgba(15, 52, 96, 0.3);
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-}
-
-.info-label {
-    color: #888;
-    font-size: 0.9em;
-    display: block;
-    margin-bottom: 5px;
-}
-
-.info-value {
-    color: var(--text-color);
-    font-weight: bold;
-    font-size: 1.1em;
-}
-
-.console-panel {
-    grid-column: 1 / -1;
-}
-
-.console-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.btn-clear {
-    padding: 8px 16px;
-    font-size: 12px;
-    background: var(--danger-color);
-    border-color: var(--danger-color);
-}
-
-.console {
-    background: #0a0e27;
-    padding: 15px;
-    border-radius: 6px;
-    border: 2px solid var(--border-color);
-    max-height: 200px;
-    overflow-y: auto;
-    font-family: 'Courier New', monospace;
-    font-size: 13px;
-}
-
-.console-entry {
-    padding: 4px 0;
-    border-bottom: 1px solid rgba(15, 52, 96, 0.5);
-}
-
-.console-entry:last-child {
-    border-bottom: none;
-}
-
-.console-time {
-    color: #888;
-    margin-right: 10px;
-}
-
-.console-message {
-    color: var(--text-color);
-}
-
-.console-entry.error .console-message {
-    color: var(--danger-color);
-}
-
-.console-entry.warning .console-message {
-    color: var(--warning-color);
-}
-
-.console-entry.success .console-message {
-    color: var(--secondary-color);
-}
-
-::-webkit-scrollbar {
-    width: 10px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--panel-bg);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--primary-color);
-}
-
-@media (max-width: 1024px) {
-    .main-content {
-        grid-template-columns: 1fr;
-    }
-    
-    .info-grid {
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+function updateServoCfg(name, updates) {
+    if (SERVO_CFG[name]) {
+        Object.assign(SERVO_CFG[name], updates);
+        localStorage.setItem("servoConfig", JSON.stringify(SERVO_CFG));
     }
 }
 
-@media (max-width: 768px) {
-    .container {
-        padding: 10px;
-    }
-    
-    header {
-        padding: 15px;
-    }
-    
-    h1 {
-        font-size: 1.5em;
-    }
-    
-    .leg-buttons,
-    .preset-buttons,
-    .action-buttons {
-        grid-template-columns: 1fr;
-    }
-    
-    .info-grid {
-        grid-template-columns: 1fr;
-    }
-})";
-
-// JavaScript - config.js
-const char* js_config = R"(// Configuration du robot Bittle
-const CONFIG = {
-    // Dimensions des segments de patte (en cm)
-    LEG: {
-        L1: 7.0,  // Longueur du premier segment (épaule -> coude)
-        L2: 7.2   // Longueur du second segment (coude -> pied)
-    },
-    
-    // Limites des servos (en degrés)
-    SERVO_LIMITS: {
-        MIN: 0,
-        MAX: 180,
-        CENTER: 90
-    },
-    
-    // Configuration des pattes
-    LEGS: [
-        { name: 'Front Left', id: 0, servos: [0, 1] },
-        { name: 'Front Right', id: 1, servos: [2, 3] },
-        { name: 'Rear Left', id: 2, servos: [4, 5] },
-        { name: 'Rear Right', id: 3, servos: [6, 7] }
-    ],
-    
-    // Positions prédéfinies
-    PRESETS: {
-        stand: { x: 0, y: -12 },
-        sit: { x: 0, y: -8 },
-        rest: { x: 0, y: -5 },
-        stretch: { x: 10, y: -15 }
-    },
-    
-    // Configuration réseau
-    NETWORK: {
-        UPDATE_INTERVAL: 100,  // ms
-        TIMEOUT: 5000,         // ms
-        RETRY_DELAY: 1000      // ms
-    },
-    
-    // Configuration du canvas
-    CANVAS: {
-        SCALE: 20,  // Pixels par cm
-        ORIGIN_X: 300,
-        ORIGIN_Y: 300
-    }
-};)";
-
-// JavaScript - ik.js
-const char* js_ik = R"(// Module de calcul de cinématique inverse (IK)
-class InverseKinematics {
-    constructor(l1, l2) {
-        this.l1 = l1;  // Longueur segment 1
-        this.l2 = l2;  // Longueur segment 2
-    }
-    
-    // Calcule les angles des servos pour atteindre la position (x, y)
-    calculate(x, y) {
-        const distance = Math.sqrt(x * x + y * y);
-        
-        // Vérifier si la position est atteignable
-        if (distance > (this.l1 + this.l2) || distance < Math.abs(this.l1 - this.l2)) {
-            return { valid: false, theta1: 0, theta2: 0 };
-        }
-        
-        // Calcul de theta2 (angle du coude)
-        const cosTheta2 = (x * x + y * y - this.l1 * this.l1 - this.l2 * this.l2) / 
-                          (2 * this.l1 * this.l2);
-        const theta2 = Math.acos(Math.max(-1, Math.min(1, cosTheta2)));
-        
-        // Calcul de theta1 (angle de l'épaule)
-        const k1 = this.l1 + this.l2 * Math.cos(theta2);
-        const k2 = this.l2 * Math.sin(theta2);
-        const theta1 = Math.atan2(y, x) - Math.atan2(k2, k1);
-        
-        // Convertir en degrés et ajuster pour les servos
-        let servo1 = 90 - (theta1 * 180 / Math.PI);
-        let servo2 = 90 - (theta2 * 180 / Math.PI);
-        
-        // Limiter aux plages valides des servos
-        servo1 = Math.max(0, Math.min(180, servo1));
-        servo2 = Math.max(0, Math.min(180, servo2));
-        
-        return {
-            valid: true,
-            theta1: theta1 * 180 / Math.PI,
-            theta2: theta2 * 180 / Math.PI,
-            servo1: Math.round(servo1),
-            servo2: Math.round(servo2)
-        };
-    }
-    
-    // Calcule la position (x, y) à partir des angles des servos
-    forward(servo1Angle, servo2Angle) {
-        // Convertir les angles servo en radians
-        const theta1 = (90 - servo1Angle) * Math.PI / 180;
-        const theta2 = (90 - servo2Angle) * Math.PI / 180;
-        
-        // Calcul de la position
-        const x = this.l1 * Math.cos(theta1) + this.l2 * Math.cos(theta1 + theta2);
-        const y = this.l1 * Math.sin(theta1) + this.l2 * Math.sin(theta1 + theta2);
-        
-        return { x, y };
-    }
+function loadServoCfg() {
+    try { const s = localStorage.getItem("servoConfig"); if (s) Object.assign(SERVO_CFG, JSON.parse(s)); }
+    catch(e) { console.warn("Config load failed", e); }
 }
 
-// Instance globale de l'IK
-const ik = new InverseKinematics(CONFIG.LEG.L1, CONFIG.LEG.L2);)";
+// ── IK Engine ──
+function calculateIK(x, y, elbowUp = false) {
+    let state = "ok", message = "", r = Math.hypot(x, y);
+    if (r < MIN_R - 1) { state = "clamp"; message = `${r.toFixed(1)}mm < min ${MIN_R}mm`; r = MIN_R; }
+    if (r > MAX_R + 1) { state = "clamp"; message = `${r.toFixed(1)}mm > max ${MAX_R}mm`; r = MAX_R; }
 
-// JavaScript - net.js
-const char* js_net = R"(// Module de communication réseau
-class NetworkManager {
-    constructor() {
-        this.connected = false;
-        this.statusCheckInterval = null;
-    }
-    
-    async init() {
-        // Démarrer la vérification du statut
-        this.startStatusCheck();
-        return true;
-    }
-    
-    startStatusCheck() {
-        this.statusCheckInterval = setInterval(async () => {
-            try {
-                const status = await this.getStatus();
-                this.connected = true;
-                this.updateConnectionStatus(true);
-                
-                // Mettre à jour l'affichage du statut
-                if (status.battery) {
-                    document.getElementById('battery-status').textContent = 
-                        status.battery.toFixed(2) + 'V';
-                }
-            } catch (error) {
-                this.connected = false;
-                this.updateConnectionStatus(false);
-            }
-        }, CONFIG.NETWORK.UPDATE_INTERVAL);
-    }
-    
-    updateConnectionStatus(connected) {
-        const statusElement = document.getElementById('connection-status');
-        if (connected) {
-            statusElement.textContent = 'Connected';
-            statusElement.className = 'status-value connected';
-        } else {
-            statusElement.textContent = 'Disconnected';
-            statusElement.className = 'status-value disconnected';
-        }
-    }
-    
-    async getStatus() {
-        const response = await fetch('/api/status');
-        if (!response.ok) throw new Error('Status check failed');
-        return await response.json();
-    }
-    
-    async sendCommand(command, params = {}) {
-        try {
-            const response = await fetch('/api/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command, ...params })
+    let hipRad = 0, kneeRad = 0;
+    try {
+        const cosK = Math.max(-1, Math.min(1, (r*r - L1*L1 - L2*L2) / (2*L1*L2)));
+        kneeRad = Math.acos(cosK);
+        const A = Math.atan2(y, x);
+        const B = Math.atan2(L2 * Math.sin(kneeRad), L1 + L2 * Math.cos(kneeRad));
+        hipRad = elbowUp ? A + B : A - B;
+        hipRad = ((hipRad + 3*Math.PI) % (2*Math.PI)) - Math.PI; // normalize [-π,π]
+        if (elbowUp) kneeRad = -kneeRad;
+    } catch(e) { state = "unreachable"; message = e.message; }
+
+    const D = 180 / Math.PI;
+    return { targetX:x, targetY:y, hipDeg:hipRad*D, kneeDeg:kneeRad*D, hipRad, kneeRad, distanceMM:r, state, message };
+}
+
+function applyServoCfg(ikDeg, cfg) {
+    let d = cfg.invert ? 180 - ikDeg : ikDeg;
+    return Math.max(cfg.minDeg, Math.min(cfg.maxDeg, d + cfg.offsetDeg));
+}
+
+function clampTarget(x, y) {
+    const r = Math.max(MIN_R, Math.min(MAX_R, Math.hypot(x, y))), a = Math.atan2(y, x);
+    return { x: r * Math.cos(a), y: r * Math.sin(a) };
+}
+
+// ── UI ──
+let ui = { leg:"LF", tx:40, ty:-30, elbowUp:false, ik:null, dragging:false };
+let canvas, ctx, ctnr;
+
+function initUI() {
+    canvas = $("ikCanvas"); ctx = canvas.getContext("2d"); ctnr = $("canvasContainer");
+
+    const resize = () => { const r = ctnr.getBoundingClientRect(); canvas.width = r.width; canvas.height = r.height; draw(); };
+    resize(); window.addEventListener("resize", resize);
+
+    // Canvas mouse events
+    canvas.addEventListener("mousedown", e => { const p = mouse(e); if (Math.hypot(p.x - ui.tx, p.y - ui.ty) < 15) ui.dragging = true; });
+    canvas.addEventListener("mousemove", e => {
+        if (!ui.dragging) return;
+        const c = clampTarget(...Object.values(mouse(e)));
+        ui.tx = c.x; ui.ty = c.y; saveUI(); draw(); updateServoValues();
+    });
+    const stop = () => { if (ui.dragging) { ui.dragging = false; draw(); } };
+    canvas.addEventListener("mouseup", stop); canvas.addEventListener("mouseleave", stop);
+
+    // Control events
+    $("legSelect").addEventListener("change", e => { ui.leg = e.target.value; syncConfigPanel(); saveUI(); draw(); });
+    $("elbowUpToggle").addEventListener("change", e => { ui.elbowUp = e.target.checked; saveUI(); draw(); updateServoValues(); });
+    $("sendNeutralBtn").addEventListener("click", sendNeutral);
+    $("sendCurrentBtn").addEventListener("click", sendCurrent);
+    $("simulationToggle").addEventListener("change", e => { net.sim = e.target.checked; updateNetStatus(); });
+
+    loadUI(); draw();
+}
+
+const getOrigin = () => ({ x: canvas.width/2, y: canvas.height/2 });
+const getScale = () => Math.min(canvas.width, canvas.height) / 150;
+
+function mouse(e) {
+    const r = canvas.getBoundingClientRect(), o = getOrigin(), s = getScale();
+    return { x: (e.clientX - r.left - o.x) / s, y: -(e.clientY - r.top - o.y) / s };
+}
+
+function draw() {
+    const w = canvas.width, h = canvas.height, o = getOrigin(), s = getScale();
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+
+    // Grid 5mm
+    const gs = 5 * s; ctx.strokeStyle = "#e0e0e0"; ctx.lineWidth = 0.5;
+    for (let x = 0; x < w; x += gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for (let y = 0; y < h; y += gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+    // Axes
+    const md = 100 * s;
+    ctx.lineWidth = 2;
+    // X (red)
+    ctx.strokeStyle = "#f44"; ctx.beginPath(); ctx.moveTo(o.x-md,o.y); ctx.lineTo(o.x+md,o.y); ctx.stroke();
+    ctx.fillStyle = "#f44"; ctx.beginPath(); ctx.moveTo(o.x+md,o.y); ctx.lineTo(o.x+md-10,o.y-5); ctx.lineTo(o.x+md-10,o.y+5); ctx.fill();
+    // Y (blue)
+    ctx.strokeStyle = "#44f"; ctx.beginPath(); ctx.moveTo(o.x,o.y+md); ctx.lineTo(o.x,o.y-md); ctx.stroke();
+    ctx.fillStyle = "#44f"; ctx.beginPath(); ctx.moveTo(o.x,o.y-md); ctx.lineTo(o.x-5,o.y-md+10); ctx.lineTo(o.x+5,o.y-md+10); ctx.fill();
+    // Origin + labels
+    ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(o.x,o.y,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#666"; ctx.font = "12px Arial";
+    ctx.fillText("+X", o.x+60*s+5, o.y-5); ctx.fillText("+Y", o.x+10, o.y-60*s-5);
+
+    // IK + leg segments
+    ui.ik = calculateIK(ui.tx, ui.ty, ui.elbowUp);
+    const hR = ui.ik.hipDeg * Math.PI/180, kR = ui.ik.kneeDeg * Math.PI/180;
+    const kx = o.x + L1*Math.cos(hR)*s, ky = o.y - L1*Math.sin(hR)*s;
+    const fA = hR + kR, fx = kx + L2*Math.cos(fA)*s, fy = ky - L2*Math.sin(fA)*s;
+
+    // Segments: L1 blue, L2 green
+    [[o.x,o.y,kx,ky,"#06f"],[kx,ky,fx,fy,"#0c0"]].forEach(([x1,y1,x2,y2,c]) => {
+        ctx.strokeStyle = c; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    });
+    // Joints
+    [[o.x,o.y,"#f90"],[kx,ky,"#c0f"],[fx,fy,"#f06"]].forEach(([jx,jy,c]) => {
+        ctx.fillStyle = c; ctx.beginPath(); ctx.arc(jx,jy,6,0,Math.PI*2); ctx.fill();
+    });
+
+    // Target crosshair
+    const tpx = o.x + ui.tx*s, tpy = o.y - ui.ty*s;
+    ctx.strokeStyle = ui.dragging ? "#f00" : "#fa0"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(tpx,tpy,10,0,Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = "#fa0"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(tpx-5,tpy); ctx.lineTo(tpx+5,tpy); ctx.moveTo(tpx,tpy-5); ctx.lineTo(tpx,tpy+5); ctx.stroke();
+
+    // Info text overlay
+    const ik = ui.ik, lh = 18; ctx.textBaseline = "top"; ctx.font = "14px monospace"; let iy = 10;
+    const stateColor = {ok:"#0c0",clamp:"#fa0",unreachable:"#f33"}[ik.state] || "#999";
+    [
+        ["#333", `📍 Patte: ${ui.leg}`],
+        ["#333", `🎯 Cible: (${ui.tx.toFixed(1)}, ${ui.ty.toFixed(1)}) mm`],
+        ["#06f", `📏 Distance: ${ik.distanceMM.toFixed(1)} mm`],
+        ["#0a0", `📐 HIP:  ${ik.hipDeg.toFixed(1)}° (${ik.hipRad.toFixed(3)} rad)`],
+        ["#0a0", `📐 KNEE: ${ik.kneeDeg.toFixed(1)}° (${ik.kneeRad.toFixed(3)} rad)`],
+        [stateColor, `⚠️ État: ${ik.state}${ik.message ? " — "+ik.message : ""}`],
+        ["#333", `🦵 Mode: ${ui.elbowUp ? "Elbow-UP" : "Elbow-DOWN"}`],
+    ].forEach(([c,t]) => { ctx.fillStyle = c; ctx.fillText(t, 10, iy); iy += lh; });
+
+    updateServoValues();
+}
+
+// ── Servo Config Panel ──
+function syncConfigPanel() {
+    const h = getServoCfg(ui.leg, "HIP"), k = getServoCfg(ui.leg, "KNEE");
+    if (!h || !k) return;
+    $("hipOffsetInput").value = h.offsetDeg; $("hipInvertCheck").checked = h.invert;
+    $("hipMinInput").value = h.minDeg; $("hipMaxInput").value = h.maxDeg;
+    $("kneeOffsetInput").value = k.offsetDeg; $("kneeInvertCheck").checked = k.invert;
+    $("kneeMinInput").value = k.minDeg; $("kneeMaxInput").value = k.maxDeg;
+    updateServoValues();
+}
+
+function updateServoValues() {
+    if (!ui.ik) return;
+    const h = getServoCfg(ui.leg,"HIP"), k = getServoCfg(ui.leg,"KNEE");
+    if (h) $("hipOutputValue").textContent = applyServoCfg(ui.ik.hipDeg, h).toFixed(1);
+    if (k) $("kneeOutputValue").textContent = applyServoCfg(ui.ik.kneeDeg, k).toFixed(1);
+}
+
+function setupServoListeners() {
+    ["hipOffsetInput","hipInvertCheck","hipMinInput","hipMaxInput",
+     "kneeOffsetInput","kneeInvertCheck","kneeMinInput","kneeMaxInput"].forEach(id =>
+        $(id).addEventListener("change", () => {
+            updateServoCfg(`${ui.leg}_HIP`, {
+                offsetDeg:+$("hipOffsetInput").value||0, invert:$("hipInvertCheck").checked,
+                minDeg:+$("hipMinInput").value||0, maxDeg:+$("hipMaxInput").value||180
             });
-            
-            if (!response.ok) throw new Error('Command failed');
-            return await response.json();
-        } catch (error) {
-            console.error('Command error:', error);
-            throw error;
-        }
-    }
-    
-    async setServo(channel, angle) {
-        try {
-            const response = await fetch('/api/servo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ channel, angle })
+            updateServoCfg(`${ui.leg}_KNEE`, {
+                offsetDeg:+$("kneeOffsetInput").value||0, invert:$("kneeInvertCheck").checked,
+                minDeg:+$("kneeMinInput").value||0, maxDeg:+$("kneeMaxInput").value||180
             });
-            
-            if (!response.ok) throw new Error('Servo command failed');
-            return await response.json();
-        } catch (error) {
-            console.error('Servo error:', error);
-            throw error;
-        }
-    }
-    
-    destroy() {
-        if (this.statusCheckInterval) {
-            clearInterval(this.statusCheckInterval);
-        }
-    }
-}
-
-// Instance globale du gestionnaire réseau
-const network = new NetworkManager();)";
-
-// JavaScript - ui.js
-const char* js_ui = R"(// Module d'interface utilisateur
-class UIManager {
-    constructor() {
-        this.canvas = document.getElementById('robot-canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.selectedLeg = 0;
-        this.targetX = 0;
-        this.targetY = -12;
-        this.currentAngles = { theta1: 0, theta2: 0, servo1: 90, servo2: 90 };
-    }
-    
-    init() {
-        this.setupEventListeners();
-        this.updateDisplay();
-        this.draw();
-        this.log('UI initialized', 'success');
-    }
-    
-    setupEventListeners() {
-        // Sliders de position cible
-        document.getElementById('target-x').addEventListener('input', (e) => {
-            this.targetX = parseFloat(e.target.value);
-            document.getElementById('target-x-value').textContent = this.targetX;
-            this.updateIK();
-        });
-        
-        document.getElementById('target-y').addEventListener('input', (e) => {
-            this.targetY = parseFloat(e.target.value);
-            document.getElementById('target-y-value').textContent = this.targetY;
-            this.updateIK();
-        });
-        
-        // Boutons de sélection de patte
-        document.querySelectorAll('.leg-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.leg-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.selectedLeg = parseInt(e.target.dataset.leg);
-                this.updateDisplay();
-                this.log(`Selected leg: ${CONFIG.LEGS[this.selectedLeg].name}`, 'success');
-            });
-        });
-        
-        // Boutons de positions prédéfinies
-        document.querySelectorAll('.preset-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const preset = e.target.dataset.preset;
-                const pos = CONFIG.PRESETS[preset];
-                document.getElementById('target-x').value = pos.x;
-                document.getElementById('target-y').value = pos.y;
-                this.targetX = pos.x;
-                this.targetY = pos.y;
-                document.getElementById('target-x-value').textContent = pos.x;
-                document.getElementById('target-y-value').textContent = pos.y;
-                this.updateIK();
-                this.log(`Preset applied: ${preset}`, 'success');
-            });
-        });
-        
-        // Sliders de contrôle manuel des servos
-        document.getElementById('servo0').addEventListener('input', (e) => {
-            const angle = parseInt(e.target.value);
-            document.getElementById('servo0-value').textContent = angle;
-            this.manualServoControl(0, angle);
-        });
-        
-        document.getElementById('servo1').addEventListener('input', (e) => {
-            const angle = parseInt(e.target.value);
-            document.getElementById('servo1-value').textContent = angle;
-            this.manualServoControl(1, angle);
-        });
-        
-        // Boutons d'action
-        document.getElementById('btn-calibrate').addEventListener('click', () => {
-            this.calibrate();
-        });
-        
-        document.getElementById('btn-center').addEventListener('click', () => {
-            this.centerAll();
-        });
-        
-        document.getElementById('btn-emergency').addEventListener('click', () => {
-            this.emergencyStop();
-        });
-        
-        document.getElementById('btn-clear-console').addEventListener('click', () => {
-            document.getElementById('console').innerHTML = '';
-        });
-    }
-    
-    updateIK() {
-        const result = ik.calculate(this.targetX, this.targetY);
-        
-        if (result.valid) {
-            this.currentAngles = result;
-            this.sendServoCommands(result.servo1, result.servo2);
-            document.getElementById('info-ik-status').textContent = 'Valid';
-            document.getElementById('info-ik-status').style.color = 'var(--secondary-color)';
-        } else {
-            document.getElementById('info-ik-status').textContent = 'Out of reach';
-            document.getElementById('info-ik-status').style.color = 'var(--danger-color)';
-            this.log('Target position out of reach', 'warning');
-        }
-        
-        this.updateDisplay();
-        this.draw();
-    }
-    
-    manualServoControl(servoIndex, angle) {
-        const leg = CONFIG.LEGS[this.selectedLeg];
-        const servoChannel = leg.servos[servoIndex];
-        
-        network.setServo(servoChannel, angle)
-            .then(() => {
-                this.log(`Servo ${servoChannel} set to ${angle}°`, 'success');
-            })
-            .catch(error => {
-                this.log(`Failed to set servo: ${error.message}`, 'error');
-            });
-        
-        // Calculer la position résultante
-        const servo1 = parseInt(document.getElementById('servo0').value);
-        const servo2 = parseInt(document.getElementById('servo1').value);
-        const pos = ik.forward(servo1, servo2);
-        
-        this.targetX = pos.x;
-        this.targetY = pos.y;
-        document.getElementById('target-x').value = pos.x;
-        document.getElementById('target-y').value = pos.y;
-        document.getElementById('target-x-value').textContent = pos.x.toFixed(1);
-        document.getElementById('target-y-value').textContent = pos.y.toFixed(1);
-        
-        this.draw();
-    }
-    
-    sendServoCommands(angle1, angle2) {
-        const leg = CONFIG.LEGS[this.selectedLeg];
-        
-        Promise.all([
-            network.setServo(leg.servos[0], angle1),
-            network.setServo(leg.servos[1], angle2)
-        ])
-        .then(() => {
-            this.log(`Servos updated: θ1=${angle1}°, θ2=${angle2}°`, 'success');
+            syncConfigPanel();
         })
-        .catch(error => {
-            this.log(`Failed to update servos: ${error.message}`, 'error');
-        });
-    }
-    
-    calibrate() {
-        this.log('Starting calibration...', 'success');
-        network.sendCommand('calibrate')
-            .then(() => {
-                this.log('Calibration complete', 'success');
-            })
-            .catch(error => {
-                this.log(`Calibration failed: ${error.message}`, 'error');
-            });
-    }
-    
-    centerAll() {
-        this.log('Centering all servos...', 'success');
-        network.sendCommand('center')
-            .then(() => {
-                this.log('All servos centered', 'success');
-            })
-            .catch(error => {
-                this.log(`Center failed: ${error.message}`, 'error');
-            });
-    }
-    
-    emergencyStop() {
-        this.log('EMERGENCY STOP', 'error');
-        network.sendCommand('stop')
-            .then(() => {
-                this.log('Robot stopped', 'success');
-            })
-            .catch(error => {
-                this.log(`Stop failed: ${error.message}`, 'error');
-            });
-    }
-    
-    updateDisplay() {
-        const leg = CONFIG.LEGS[this.selectedLeg];
-        document.getElementById('info-leg').textContent = `${leg.name} (${leg.id})`;
-        document.getElementById('info-target').textContent = 
-            `X: ${this.targetX.toFixed(1)}cm, Y: ${this.targetY.toFixed(1)}cm`;
-        
-        if (this.currentAngles.valid) {
-            document.getElementById('info-angles').textContent = 
-                `θ1: ${this.currentAngles.servo1}°, θ2: ${this.currentAngles.servo2}°`;
+    );
+}
+
+// ── Persistence ──
+function saveUI() { localStorage.setItem("uiState", JSON.stringify({leg:ui.leg,tx:ui.tx,ty:ui.ty,elbowUp:ui.elbowUp})); }
+function loadUI() {
+    try {
+        const s = JSON.parse(localStorage.getItem("uiState"));
+        if (s) { ui.leg = s.leg||ui.leg; ui.tx = s.tx??ui.tx; ui.ty = s.ty??ui.ty; ui.elbowUp = !!s.elbowUp; }
+        $("legSelect").value = ui.leg; $("elbowUpToggle").checked = ui.elbowUp;
+        syncConfigPanel();
+    } catch(e) {}
+}
+
+// ── Network ──
+let net = { connected:false, wsOk:false, ip:"192.168.4.1", port:80, proto:"http", sim:false, lastSent:0, throttle:50 };
+let ws = null;
+
+function initNet() {
+    if (net.proto === "ws") connectWS(); else net.connected = true;
+    updateNetStatus();
+}
+
+function connectWS() {
+    try {
+        ws = new WebSocket(`ws://${net.ip}:${net.port}/ws`);
+        ws.onopen = () => { net.wsOk = net.connected = true; updateNetStatus(); };
+        ws.onclose = () => { net.wsOk = net.connected = false; updateNetStatus(); setTimeout(connectWS, 5000); };
+        ws.onerror = () => { net.wsOk = false; updateNetStatus(); };
+    } catch(e) { net.wsOk = false; }
+}
+
+function updateNetStatus() {
+    const el = $("networkStatus"); if (!el) return;
+    el.innerHTML = net.sim ? "🎮 <strong>SIMULATION</strong> - Pas de réseau"
+        : net.connected ? `✅ <strong>Connecté</strong> (${net.proto==="ws"?"WebSocket":"HTTP"}) - ${net.ip}`
+        : `❌ <strong>Déconnecté</strong> - ${net.ip}`;
+}
+
+function buildPayload(leg, angles) {
+    const h = getServoCfg(leg,"HIP"), k = getServoCfg(leg,"KNEE");
+    if (!h || !k) throw new Error(`Invalid leg: ${leg}`);
+    return {
+        leg, targets:{x:angles.targetX||0,y:angles.targetY||0,unit:"mm"},
+        angles:{hipDeg:angles.hipDeg,kneeDeg:angles.kneeDeg},
+        servos:[
+            {name:h.name, pcaChannel:h.pcaChannel, deg:applyServoCfg(angles.hipDeg,h)},
+            {name:k.name, pcaChannel:k.pcaChannel, deg:applyServoCfg(angles.kneeDeg,k)}
+        ]
+    };
+}
+
+async function sendPayload(payload) {
+    const now = Date.now();
+    if (now - net.lastSent < net.throttle) return false;
+    net.lastSent = now;
+    if (net.sim) { $("simulationOutput").textContent = JSON.stringify(payload,null,2); return true; }
+    if (!net.connected) return false;
+    try {
+        if (net.proto==="ws" && net.wsOk) ws.send(JSON.stringify(payload));
+        else {
+            const r = await fetch(`http://${net.ip}:${net.port}/api/servos`,
+                {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const json = await r.json();
+            console.log("Server response:", json);
+            if (json.applied === 0) console.warn("WARN: server applied 0 servos!", json);
         }
-    }
-    
-    draw() {
-        const ctx = this.ctx;
-        const canvas = this.canvas;
-        
-        // Effacer le canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Paramètres de dessin
-        const scale = CONFIG.CANVAS.SCALE;
-        const originX = CONFIG.CANVAS.ORIGIN_X;
-        const originY = CONFIG.CANVAS.ORIGIN_Y;
-        
-        // Dessiner la grille
-        this.drawGrid(ctx, scale, originX, originY);
-        
-        // Dessiner le système de coordonnées
-        this.drawAxes(ctx, originX, originY);
-        
-        // Dessiner la patte
-        this.drawLeg(ctx, scale, originX, originY);
-        
-        // Dessiner la cible
-        this.drawTarget(ctx, scale, originX, originY);
-    }
-    
-    drawGrid(ctx, scale, originX, originY) {
-        ctx.strokeStyle = '#0f3460';
-        ctx.lineWidth = 1;
-        
-        // Lignes verticales
-        for (let x = -30; x <= 30; x += 5) {
-            const px = originX + x * scale;
-            ctx.beginPath();
-            ctx.moveTo(px, 0);
-            ctx.lineTo(px, this.canvas.height);
-            ctx.stroke();
+        return true;
+    } catch(e) { console.error("Send failed:",e); return false; }
+}
+
+function sendNeutral() {
+    ui.tx = L2; ui.ty = -L1; saveUI(); draw(); updateServoValues();
+    const servos = [];
+    LEGS.forEach(leg => ["HIP","KNEE"].forEach(j => {
+        const c = getServoCfg(leg,j); if (c) servos.push({name:c.name,pcaChannel:c.pcaChannel,deg:applyServoCfg(90,c)});
+    }));
+    const payload = {command:"neutral",servos};
+    if (net.sim) { $("simulationOutput").textContent = JSON.stringify(payload,null,2); return; }
+    sendPayload(payload);
+}
+
+function sendCurrent() {
+    if (!ui.ik) return;
+    sendPayload(buildPayload(ui.leg, {hipDeg:ui.ik.hipDeg,kneeDeg:ui.ik.kneeDeg,targetX:ui.tx,targetY:ui.ty}));
+}
+
+// ── Init ──
+document.addEventListener("DOMContentLoaded", () => {
+    loadServoCfg(); initUI(); initNet(); setupServoListeners(); initConsole(); initInitMode();
+});
+
+window.sendPayload = sendPayload;
+
+// ── Init Mode (lock/release servos) ──
+function initInitMode() {
+    const toggle = $("initModeToggle");
+    toggle.addEventListener("change", async () => {
+        const enabled = toggle.checked;
+        const panel = toggle.closest(".init-mode-panel");
+        const status = $("initModeStatus");
+        try {
+            const r = await fetch("/api/init-mode", {
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({enabled})
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            if (enabled) {
+                panel.classList.add("active");
+                status.textContent = "🔒 Servos verrouillés (" + (data.angles||[]).join(", ") + ")°";
+                status.className = "init-status locked";
+            } else {
+                panel.classList.remove("active");
+                status.textContent = "Servos libres";
+                status.className = "init-status free";
+            }
+        } catch(e) {
+            console.error("Init mode error:", e);
+            status.textContent = "❌ Erreur: " + e.message;
+            status.className = "init-status";
+            toggle.checked = !enabled;
         }
-        
-        // Lignes horizontales
-        for (let y = -30; y <= 30; y += 5) {
-            const py = originY - y * scale;
-            ctx.beginPath();
-            ctx.moveTo(0, py);
-            ctx.lineTo(this.canvas.width, py);
-            ctx.stroke();
+    });
+}
+
+// ── Serial Console ──
+let conState = { since: 0, paused: false, autoScroll: true, timer: null, lineCount: 0 };
+
+function initConsole() {
+    const out = $("consoleOutput");
+    $("consolePauseBtn").addEventListener("click", () => {
+        conState.paused = !conState.paused;
+        $("consolePauseBtn").innerHTML = conState.paused ? "&#x25B6; Resume" : "&#x23F8; Pause";
+        $("consolePauseBtn").classList.toggle("active", conState.paused);
+    });
+    $("consoleClearBtn").addEventListener("click", () => {
+        out.innerHTML = "";
+        conState.lineCount = 0;
+    });
+    $("consoleAutoScrollBtn").addEventListener("click", () => {
+        conState.autoScroll = !conState.autoScroll;
+        $("consoleAutoScrollBtn").classList.toggle("active", conState.autoScroll);
+    });
+
+    // Start polling
+    conState.timer = setInterval(pollLogs, 1000);
+    pollLogs();
+}
+
+function classifyLogLine(line) {
+    if (/^E \(|^E\s|ESP_ERROR|FAIL|ERROR/i.test(line)) return "log-E";
+    if (/^W \(|^W\s|WARN/i.test(line)) return "log-W";
+    if (/^I \(|^I\s/i.test(line)) return "log-I";
+    if (/^D \(|^D\s/i.test(line)) return "log-D";
+    if (/^V \(|^V\s/i.test(line)) return "log-V";
+    return "";
+}
+
+async function pollLogs() {
+    if (conState.paused) return;
+    const status = $("consoleStatus");
+    try {
+        const r = await fetch(`/api/logs?since=${conState.since}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        status.textContent = `Connected | ${data.idx} lines total`;
+        status.style.color = "#0c0";
+
+        if (data.lines && data.lines.length > 0) {
+            const out = $("consoleOutput");
+            const frag = document.createDocumentFragment();
+            data.lines.forEach(line => {
+                const div = document.createElement("div");
+                const cls = classifyLogLine(line);
+                if (cls) div.className = cls;
+                div.textContent = line;
+                frag.appendChild(div);
+                conState.lineCount++;
+            });
+            out.appendChild(frag);
+
+            // Limit DOM lines to 500
+            while (out.children.length > 500) out.removeChild(out.firstChild);
+
+            if (conState.autoScroll) out.scrollTop = out.scrollHeight;
+            conState.since = data.idx;
         }
-    }
-    
-    drawAxes(ctx, originX, originY) {
-        ctx.strokeStyle = '#2196F3';
-        ctx.lineWidth = 2;
-        
-        // Axe X
-        ctx.beginPath();
-        ctx.moveTo(0, originY);
-        ctx.lineTo(this.canvas.width, originY);
-        ctx.stroke();
-        
-        // Axe Y
-        ctx.beginPath();
-        ctx.moveTo(originX, 0);
-        ctx.lineTo(originX, this.canvas.height);
-        ctx.stroke();
-    }
-    
-    drawLeg(ctx, scale, originX, originY) {
-        if (!this.currentAngles.valid) return;
-        
-        const theta1 = (90 - this.currentAngles.servo1) * Math.PI / 180;
-        const theta2 = (90 - this.currentAngles.servo2) * Math.PI / 180;
-        
-        // Position du coude
-        const elbowX = CONFIG.LEG.L1 * Math.cos(theta1);
-        const elbowY = CONFIG.LEG.L1 * Math.sin(theta1);
-        
-        // Position du pied
-        const footX = elbowX + CONFIG.LEG.L2 * Math.cos(theta1 + theta2);
-        const footY = elbowY + CONFIG.LEG.L2 * Math.sin(theta1 + theta2);
-        
-        // Dessiner le premier segment
-        ctx.strokeStyle = '#4CAF50';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(originX, originY);
-        ctx.lineTo(originX + elbowX * scale, originY - elbowY * scale);
-        ctx.stroke();
-        
-        // Dessiner le second segment
-        ctx.strokeStyle = '#2196F3';
-        ctx.beginPath();
-        ctx.moveTo(originX + elbowX * scale, originY - elbowY * scale);
-        ctx.lineTo(originX + footX * scale, originY - footY * scale);
-        ctx.stroke();
-        
-        // Dessiner les articulations
-        this.drawJoint(ctx, originX, originY, '#ff9800');
-        this.drawJoint(ctx, originX + elbowX * scale, originY - elbowY * scale, '#ff9800');
-        this.drawJoint(ctx, originX + footX * scale, originY - footY * scale, '#4CAF50');
-    }
-    
-    drawJoint(ctx, x, y, color) {
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(x, y, 6, 0, 2 * Math.PI);
-        ctx.fill();
-    }
-    
-    drawTarget(ctx, scale, originX, originY) {
-        const px = originX + this.targetX * scale;
-        const py = originY - this.targetY * scale;
-        
-        ctx.strokeStyle = '#f44336';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(px, py, 8, 0, 2 * Math.PI);
-        ctx.stroke();
-        
-        // Croix
-        ctx.beginPath();
-        ctx.moveTo(px - 12, py);
-        ctx.lineTo(px + 12, py);
-        ctx.moveTo(px, py - 12);
-        ctx.lineTo(px, py + 12);
-        ctx.stroke();
-    }
-    
-    log(message, type = 'info') {
-        const console = document.getElementById('console');
-        const entry = document.createElement('div');
-        entry.className = `console-entry ${type}`;
-        
-        const time = new Date().toLocaleTimeString();
-        entry.innerHTML = `
-            <span class="console-time">[${time}]</span>
-            <span class="console-message">${message}</span>
-        `;
-        
-        console.appendChild(entry);
-        console.scrollTop = console.scrollHeight;
+    } catch(e) {
+        status.textContent = "Disconnected";
+        status.style.color = "#f55";
     }
 }
 
-// Initialisation au chargement de la page
-document.addEventListener('DOMContentLoaded', async () => {
-    const ui = new UIManager();
-    ui.init();
-    
-    await network.init();
-    ui.log('System ready', 'success');
-});)";
+})();
+</script>
+</body>
+</html>
+)";
