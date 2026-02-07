@@ -145,7 +145,7 @@ details summary:hover{background:#f0f4ff}
                         <div class="config-input"><label for="hipMinInput">Min (°):</label><input type="number" id="hipMinInput" value="0" step="1" min="0" max="180"></div>
                         <div class="config-input"><label for="hipMaxInput">Max (°):</label><input type="number" id="hipMaxInput" value="180" step="1" min="0" max="180"></div>
                     </div>
-                    <div class="servo-output">Angle Servo: <span id="hipOutputValue">90.0</span>°</div>
+                    <div class="servo-output">Angle Servo: <span id="hipOutputValue">90.0</span>° &nbsp; <label>Manuel: <input type="number" id="hipManualInput" value="90" step="1" min="0" max="180" style="width:60px;padding:4px;border:1px solid #667eea;border-radius:4px"></label></div>
                 </div>
                 <div class="servo-config-panel">
                     <h3>KNEE (Genou)</h3>
@@ -155,11 +155,13 @@ details summary:hover{background:#f0f4ff}
                         <div class="config-input"><label for="kneeMinInput">Min (°):</label><input type="number" id="kneeMinInput" value="0" step="1" min="0" max="180"></div>
                         <div class="config-input"><label for="kneeMaxInput">Max (°):</label><input type="number" id="kneeMaxInput" value="180" step="1" min="0" max="180"></div>
                     </div>
-                    <div class="servo-output">Angle Servo: <span id="kneeOutputValue">90.0</span>°</div>
+                    <div class="servo-output">Angle Servo: <span id="kneeOutputValue">90.0</span>° &nbsp; <label>Manuel: <input type="number" id="kneeManualInput" value="90" step="1" min="0" max="180" style="width:60px;padding:4px;border:1px solid #667eea;border-radius:4px"></label></div>
                 </div>
                 <div class="button-group">
                     <button id="sendNeutralBtn" class="btn btn-secondary">🔄 Neutre (90°)</button>
+                    <button id="standBtn" class="btn" style="background:#28a745;color:#fff">💪 Stand</button>
                     <button id="sendCurrentBtn" class="btn btn-primary">📤 Envoyer Angles</button>
+                    <button id="resetConfigBtn" class="btn" style="background:#dc3545;color:#fff">🗑 Reset Config</button>
                 </div>
 
                 <div class="init-mode-panel">
@@ -253,11 +255,15 @@ const L1 = 46, L2 = 21, MIN_R = 25, MAX_R = 67;
 const LEGS = ["LF","LR","RF","RR"];
 
 // Génération dynamique config servo (remplace 8 blocs répétitifs)
+const SERVO_CFG_VERSION = 4;
+
 const SERVO_CFG = {};
 LEGS.forEach((leg, i) => {
     ["HIP","KNEE"].forEach((joint, j) => {
         const ch = i * 2 + j;
-        SERVO_CFG[`${leg}_${joint}`] = { name:`${leg}_${joint}`, pcaChannel:ch, offsetDeg:0, invert:false, minDeg:0, maxDeg:180 };
+        const inv = (joint==="KNEE" && (leg==="RF"||leg==="RR")) || (joint==="HIP" && (leg==="LF"||leg==="LR"));
+        const off = (joint==="KNEE") ? (inv ? -30 : 30) : 0;
+        SERVO_CFG[`${leg}_${joint}`] = { name:`${leg}_${joint}`, pcaChannel:ch, offsetDeg:off, invert:inv, minDeg:0, maxDeg:180 };
     });
 });
 
@@ -267,13 +273,25 @@ const $ = id => document.getElementById(id);
 function updateServoCfg(name, updates) {
     if (SERVO_CFG[name]) {
         Object.assign(SERVO_CFG[name], updates);
-        localStorage.setItem("servoConfig", JSON.stringify(SERVO_CFG));
+        localStorage.setItem("servoConfig", JSON.stringify({ version:SERVO_CFG_VERSION, data:SERVO_CFG }));
     }
 }
 
 function loadServoCfg() {
-    try { const s = localStorage.getItem("servoConfig"); if (s) Object.assign(SERVO_CFG, JSON.parse(s)); }
-    catch(e) { console.warn("Config load failed", e); }
+    try {
+        const raw = JSON.parse(localStorage.getItem("servoConfig"));
+        if (raw && raw.version === SERVO_CFG_VERSION && raw.data) {
+            Object.keys(raw.data).forEach(k => { if (SERVO_CFG[k]) Object.assign(SERVO_CFG[k], raw.data[k]); });
+        } else {
+            localStorage.removeItem("servoConfig");
+        }
+    } catch(e) { localStorage.removeItem("servoConfig"); }
+}
+
+function resetAllConfig() {
+    localStorage.removeItem("servoConfig");
+    localStorage.removeItem("uiState");
+    location.reload();
 }
 
 // ── IK Engine ──
@@ -302,13 +320,28 @@ function applyServoCfg(ikDeg, cfg) {
     return Math.max(cfg.minDeg, Math.min(cfg.maxDeg, d + cfg.offsetDeg));
 }
 
+function reverseServoCfg(servoDeg, cfg) {
+    let d = servoDeg - cfg.offsetDeg;
+    return cfg.invert ? 180 - d : d;
+}
+
+function forwardKinematics(hipDeg, kneeDeg) {
+    const R = Math.PI / 180;
+    const hR = hipDeg * R, kR = kneeDeg * R;
+    const fx = L1 * Math.cos(hR) + L2 * Math.cos(hR + kR);
+    const fy = L1 * Math.sin(hR) + L2 * Math.sin(hR + kR);
+    return { x: fx, y: fy };
+}
+
 function clampTarget(x, y) {
     const r = Math.max(MIN_R, Math.min(MAX_R, Math.hypot(x, y))), a = Math.atan2(y, x);
     return { x: r * Math.cos(a), y: r * Math.sin(a) };
 }
 
 // ── UI ──
-let ui = { leg:"LF", tx:40, ty:-30, elbowUp:false, ik:null, dragging:false };
+let ui = { leg:"LF", tx:40, ty:-30, elbowUp:false, ik:null, dragging:false, draggingKnee:false };
+const legStates = {};
+LEGS.forEach(leg => { legStates[leg] = { tx:40, ty:-30, elbowUp:false }; });
 let canvas, ctx, ctnr;
 
 function initUI() {
@@ -318,20 +351,49 @@ function initUI() {
     resize(); window.addEventListener("resize", resize);
 
     // Canvas mouse events
-    canvas.addEventListener("mousedown", e => { const p = mouse(e); if (Math.hypot(p.x - ui.tx, p.y - ui.ty) < 15) ui.dragging = true; });
-    canvas.addEventListener("mousemove", e => {
-        if (!ui.dragging) return;
-        const c = clampTarget(...Object.values(mouse(e)));
-        ui.tx = c.x; ui.ty = c.y; saveUI(); draw(); updateServoValues();
+    canvas.addEventListener("mousedown", e => {
+        const p = mouse(e);
+        if (Math.hypot(p.x - ui.tx, p.y - ui.ty) < 15) { ui.dragging = true; return; }
+        if (ui.ik) {
+            const hR = ui.ik.hipDeg * Math.PI/180;
+            const kneeX = L1 * Math.cos(hR), kneeY = L1 * Math.sin(hR);
+            if (Math.hypot(p.x - kneeX, p.y - kneeY) < 15) { ui.draggingKnee = true; return; }
+        }
     });
-    const stop = () => { if (ui.dragging) { ui.dragging = false; draw(); } };
+    canvas.addEventListener("mousemove", e => {
+        if (!ui.dragging && !ui.draggingKnee) return;
+        const p = mouse(e);
+        if (ui.dragging) {
+            const c = clampTarget(p.x, p.y);
+            ui.tx = c.x; ui.ty = c.y;
+        } else if (ui.draggingKnee && ui.ik) {
+            const newHipRad = Math.atan2(p.y, p.x);
+            const kneeDeg = ui.ik.kneeDeg;
+            const kneeRad = kneeDeg * Math.PI / 180;
+            const newFx = L1 * Math.cos(newHipRad) + L2 * Math.cos(newHipRad + kneeRad);
+            const newFy = L1 * Math.sin(newHipRad) + L2 * Math.sin(newHipRad + kneeRad);
+            const c = clampTarget(newFx, newFy);
+            ui.tx = c.x; ui.ty = c.y;
+        }
+        saveUI(); draw(); updateServoValues();
+    });
+    const stop = () => { if (ui.dragging || ui.draggingKnee) { ui.dragging = false; ui.draggingKnee = false; draw(); } };
     canvas.addEventListener("mouseup", stop); canvas.addEventListener("mouseleave", stop);
 
     // Control events
-    $("legSelect").addEventListener("change", e => { ui.leg = e.target.value; syncConfigPanel(); saveUI(); draw(); });
+    $("legSelect").addEventListener("change", e => {
+        legStates[ui.leg] = { tx:ui.tx, ty:ui.ty, elbowUp:ui.elbowUp };
+        ui.leg = e.target.value;
+        const ls = legStates[ui.leg];
+        ui.tx = ls.tx; ui.ty = ls.ty; ui.elbowUp = ls.elbowUp;
+        $("elbowUpToggle").checked = ui.elbowUp;
+        syncConfigPanel(); saveUI(); draw();
+    });
     $("elbowUpToggle").addEventListener("change", e => { ui.elbowUp = e.target.checked; saveUI(); draw(); updateServoValues(); });
     $("sendNeutralBtn").addEventListener("click", sendNeutral);
+    $("standBtn").addEventListener("click", sendStand);
     $("sendCurrentBtn").addEventListener("click", sendCurrent);
+    $("resetConfigBtn").addEventListener("click", () => { if (confirm("Réinitialiser toute la configuration ?")) resetAllConfig(); });
     $("simulationToggle").addEventListener("change", e => { net.sim = e.target.checked; updateNetStatus(); });
 
     loadUI(); draw();
@@ -383,6 +445,10 @@ function draw() {
         ctx.fillStyle = c; ctx.beginPath(); ctx.arc(jx,jy,6,0,Math.PI*2); ctx.fill();
     });
 
+    // Knee grab ring
+    ctx.strokeStyle = ui.draggingKnee ? "#f00" : "#c0f"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(kx,ky,10,0,Math.PI*2); ctx.stroke();
+
     // Target crosshair
     const tpx = o.x + ui.tx*s, tpy = o.y - ui.ty*s;
     ctx.strokeStyle = ui.dragging ? "#f00" : "#fa0"; ctx.lineWidth = 3;
@@ -420,8 +486,21 @@ function syncConfigPanel() {
 function updateServoValues() {
     if (!ui.ik) return;
     const h = getServoCfg(ui.leg,"HIP"), k = getServoCfg(ui.leg,"KNEE");
-    if (h) $("hipOutputValue").textContent = applyServoCfg(ui.ik.hipDeg, h).toFixed(1);
-    if (k) $("kneeOutputValue").textContent = applyServoCfg(ui.ik.kneeDeg, k).toFixed(1);
+    if (h) { const v = applyServoCfg(ui.ik.hipDeg, h).toFixed(1); $("hipOutputValue").textContent = v; $("hipManualInput").value = Math.round(+v); }
+    if (k) { const v = applyServoCfg(ui.ik.kneeDeg, k).toFixed(1); $("kneeOutputValue").textContent = v; $("kneeManualInput").value = Math.round(+v); }
+}
+
+function applyManualServoAngles() {
+    const h = getServoCfg(ui.leg,"HIP"), k = getServoCfg(ui.leg,"KNEE");
+    if (!h || !k) return;
+    const hipServo = +$("hipManualInput").value || 0;
+    const kneeServo = +$("kneeManualInput").value || 0;
+    const hipIK = reverseServoCfg(hipServo, h);
+    const kneeIK = reverseServoCfg(kneeServo, k);
+    const pos = forwardKinematics(hipIK, kneeIK);
+    const c = clampTarget(pos.x, pos.y);
+    ui.tx = c.x; ui.ty = c.y;
+    saveUI(); draw();
 }
 
 function setupServoListeners() {
@@ -439,14 +518,29 @@ function setupServoListeners() {
             syncConfigPanel();
         })
     );
+    $("hipManualInput").addEventListener("change", applyManualServoAngles);
+    $("kneeManualInput").addEventListener("change", applyManualServoAngles);
 }
 
 // ── Persistence ──
-function saveUI() { localStorage.setItem("uiState", JSON.stringify({leg:ui.leg,tx:ui.tx,ty:ui.ty,elbowUp:ui.elbowUp})); }
+function saveUI() {
+    legStates[ui.leg] = { tx:ui.tx, ty:ui.ty, elbowUp:ui.elbowUp };
+    localStorage.setItem("uiState", JSON.stringify({ leg:ui.leg, legStates }));
+}
 function loadUI() {
     try {
         const s = JSON.parse(localStorage.getItem("uiState"));
-        if (s) { ui.leg = s.leg||ui.leg; ui.tx = s.tx??ui.tx; ui.ty = s.ty??ui.ty; ui.elbowUp = !!s.elbowUp; }
+        if (s) {
+            ui.leg = s.leg || ui.leg;
+            if (s.legStates) {
+                LEGS.forEach(leg => { if (s.legStates[leg]) Object.assign(legStates[leg], s.legStates[leg]); });
+            } else {
+                // backward compat: ancien format sans legStates
+                legStates[ui.leg] = { tx:s.tx??40, ty:s.ty??-30, elbowUp:!!s.elbowUp };
+            }
+            const ls = legStates[ui.leg];
+            ui.tx = ls.tx; ui.ty = ls.ty; ui.elbowUp = ls.elbowUp;
+        }
         $("legSelect").value = ui.leg; $("elbowUpToggle").checked = ui.elbowUp;
         syncConfigPanel();
     } catch(e) {}
@@ -510,12 +604,42 @@ async function sendPayload(payload) {
     } catch(e) { console.error("Send failed:",e); return false; }
 }
 
-function sendNeutral() {
-    ui.tx = L2; ui.ty = -L1; saveUI(); draw(); updateServoValues();
+function sendStand() {
+    const STAND_HIP_IK = 90, STAND_KNEE_IK = -10;
     const servos = [];
-    LEGS.forEach(leg => ["HIP","KNEE"].forEach(j => {
-        const c = getServoCfg(leg,j); if (c) servos.push({name:c.name,pcaChannel:c.pcaChannel,deg:applyServoCfg(90,c)});
-    }));
+    LEGS.forEach(leg => {
+        const hCfg = getServoCfg(leg,"HIP"), kCfg = getServoCfg(leg,"KNEE");
+        if (!hCfg || !kCfg) return;
+        const pos = forwardKinematics(STAND_HIP_IK, STAND_KNEE_IK);
+        legStates[leg] = { tx:pos.x, ty:pos.y, elbowUp:false };
+        servos.push({name:hCfg.name, pcaChannel:hCfg.pcaChannel, deg:applyServoCfg(STAND_HIP_IK, hCfg)});
+        servos.push({name:kCfg.name, pcaChannel:kCfg.pcaChannel, deg:applyServoCfg(STAND_KNEE_IK, kCfg)});
+    });
+    const ls = legStates[ui.leg];
+    ui.tx = ls.tx; ui.ty = ls.ty; ui.elbowUp = false;
+    $("elbowUpToggle").checked = false;
+    saveUI(); draw(); updateServoValues();
+    const payload = {command:"stand",servos};
+    if (net.sim) { $("simulationOutput").textContent = JSON.stringify(payload,null,2); return; }
+    sendPayload(payload);
+}
+
+function sendNeutral() {
+    const servos = [];
+    LEGS.forEach(leg => {
+        const hCfg = getServoCfg(leg,"HIP"), kCfg = getServoCfg(leg,"KNEE");
+        if (!hCfg || !kCfg) return;
+        const hipIK = reverseServoCfg(90, hCfg), kneeIK = reverseServoCfg(90, kCfg);
+        const pos = forwardKinematics(hipIK, kneeIK);
+        legStates[leg] = { tx:pos.x, ty:pos.y, elbowUp:false };
+        ["HIP","KNEE"].forEach(j => {
+            const c = getServoCfg(leg,j); if (c) servos.push({name:c.name,pcaChannel:c.pcaChannel,deg:90});
+        });
+    });
+    const ls = legStates[ui.leg];
+    ui.tx = ls.tx; ui.ty = ls.ty; ui.elbowUp = false;
+    $("elbowUpToggle").checked = false;
+    saveUI(); draw(); updateServoValues();
     const payload = {command:"neutral",servos};
     if (net.sim) { $("simulationOutput").textContent = JSON.stringify(payload,null,2); return; }
     sendPayload(payload);
